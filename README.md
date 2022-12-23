@@ -5,6 +5,8 @@ Install OpenIPC on Light Camera (Lutec, Steinel)
 
 This project try to install [OpenIPC](https://openipc.org/) on Light Camera. Any help will be usefull.
 
+![Steinel L620](/ressource/steinel-l-620-cam-sc-small.jpg)
+
 ### Light Camera should be :
 - Steinel L600
 - Steinel L620
