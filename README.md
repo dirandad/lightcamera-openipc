@@ -29,7 +29,25 @@ These cameras are tipically based on :
     - [ ] Expose detector status
     - [ ] give light control : ON/OFF/Variable
     - [ ] manage light parameters : ON/OFF management, Light %,...
-    - [ ] Manage detector parameters
+    - [ ] Manage detector parameters : sensibility, duration,...
+
+Project will be started with a Steinel L620 SC camera.
+
+### Steps for each camera type
+
+- Camera dismounting and hardware identification
+- identification of console serial port and connection
+- original firmware analysis
+- light management extension card analysis
+- OpenIPC installation using console
+- Wi-Fi card activation
+- sensor activation
+- module development for light extension card
+- module integration in OpenIPC
+- script development to automate firmware installation using SD card
+
+
+
 
 
 
