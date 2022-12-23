@@ -4,13 +4,13 @@
 
 ## Camera dismounting and hardware identification
 
-Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible without breaking a foot of the camera support. This confirm the need of developping a script to install a new firmware without need to open the camera. All connectors are stick (that can be removed).
+Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible without breaking a foot of the camera support. This confirm the need of developping a script to install a new firmware without need to open the camera. All connectors are stick (stick can be removed, sometime with breaking a connector...).
 
 ### Steinel L620 SC camera is based on this hardware
 - SoC : Hisilicon HI3518EV300
 - Device ID : 50H20L
 - Sensor : ??
-- Wifi Card : Realtek RTL8188FU (to be confirme)
+- Wifi Card : Realtek RTL8188FU (to be confirmed)
 - Light managment card : see above
 
 ### Wiring diagram of the light
