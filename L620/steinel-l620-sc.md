@@ -15,7 +15,7 @@ Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible with
 
 ### Wiring diagram of the light
 
-![Steinel L620 Wiring Diagram](/ressources/steinel-l-620-sc-wirring-diagram.png)
+![Steinel L620 Wiring Diagram](/L620/ressources/steinel-l-620-sc-wirring-diagram.png)
 
 ## identification of console serial port and connection
 Work in progress
@@ -51,7 +51,7 @@ Work in progress
 
 pinout of the U2 microchip :
 
-![Steinel L620 U2 pineout](/ressources/steinel-l-620-sc-U2-pinout.png)
+![Steinel L620 U2 pineout](/L620/ressources/steinel-l-620-sc-U2-pinout.png)
 
 the communication bettween the light managment card and the camera proc is serial (UART ?)
 
