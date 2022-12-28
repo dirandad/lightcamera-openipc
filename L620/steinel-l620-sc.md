@@ -102,6 +102,8 @@ Uncompressing Linux... done, booting the kernel.
 
 ## original firmware backup
 
+### create a backup
+
 Using u-boot and a sd card, it is possible to make a backup of the original firmware.
 
 ```
@@ -130,6 +132,20 @@ Move SD Card on a linux machine and run (identify dev path of sd card, /dev/sdb 
 
 ```
 sudo dd bs=512 skip=16 count=32768 if=/dev/sdb of=./fulldump20220712.bin
+```
+
+
+### restore the backup
+
+Using u-boot (openipc or original) and a sd card in FAT32 with fulldump20220712.bin
+
+```
+mw.b 0x42000000 ff 0x1000000;
+fatload mmc 0:1 0x42000000 fulldump20220712.bin
+sf probe 0;
+sf lock 0;
+sf erase 0x0 0x1000000;
+sf write 0x42000000 0x0 0x1000000;
 ```
 
 ## original firmware analysis
@@ -279,7 +295,87 @@ Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00
 ```
 
 ## OpenIPC installation using console
-Work in progress
+
+Insert a SD Card in FAT32 format with the following bin file :
+- u-boot : u-boot-hi3518ev300-universal.bin
+- rootfs : rootfs.squashfs.hi3518ev300 (utltimate version)
+- uImage : uImage.hi3518ev300
+
+### updating u-boot
+
+Insert SD card, and press Ctrl+c to enter original u-boot
+
+```
+# clear ram
+mw.b 0x42000000 ff 0x50000
+
+# read sd card to ram
+fatload mmc 0:1 0x42000000 u-boot-hi3518ev300-universal.bin
+
+# select rom
+sf probe 0;
+
+# unlock rom
+sf lock 0;
+
+# erase rom
+sf erase 0x0 0x50000;
+
+# write ram to rom
+sf write 0x42000000 0x0 0x50000;
+
+# restart
+reset
+```
+
+### updating kernel
+
+Prepare rom
+
+```
+run setnor16m
+```
+
+Install uImage
+
+```
+# clear ram
+mw.b 0x42000000 ff 0x1000000;
+
+# read sd card to ram
+fatload mmc 0:1 0x42000000 uimage.hi3518ev300;
+
+# select rom
+sf probe 0; 
+
+# erase rom
+sf erase 0x50000 0x300000;
+
+# write ram to rom
+sf write 0x42000000 0x50000 0x300000;
+```
+
+Install rootfs
+
+```
+# clear ram
+mw.b 0x42000000 ff 0x1000000;
+
+# read sd card to ram
+fatload mmc 0:1 0x42000000 rootfs.squashfs.hi3518ev300;
+
+# select rom
+sf probe 0; 
+
+# erase rom
+sf erase 0x350000 0xa00000;
+
+# write ram to rom
+sf write 0x42000000 0x350000 0xa00000;
+```
+
+
+
 
 ## Wi-Fi card activation
 Work in progress
