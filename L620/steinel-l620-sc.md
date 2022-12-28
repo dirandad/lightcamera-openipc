@@ -374,14 +374,34 @@ sf erase 0x350000 0xa00000;
 sf write 0x42000000 0x350000 0xa00000;
 ```
 
-
-
-
 ## Wi-Fi card activation
-Work in progress
+
+RTL8188FU Wifi card is nativelly managed by OpenIPC but need to be activated. Edit the file /etc/network/interfaces with vi
+
+```
+vi /etc/network/interfaces
+```
+
+replace wlan0 section with the following
+
+```
+auto wlan0
+iface wlan0 inet dhcp
+    pre-up modprobe rtl8188fu
+    pre-up wpa_passphrase "SSID" "password" >/tmp/wpa_supplicant.conf
+    pre-up sed -i '2i \\tscan_ssid=1' /tmp/wpa_supplicant.conf
+    pre-up sleep 3
+    pre-up wpa_supplicant -B -D nl80211 -i wlan0 -c/tmp/wpa_supplicant.conf
+    post-down killall -q wpa_supplicant
+```
 
 ## sensor activation
-Work in progress
+
+Sensor is automatically detected by OpenIPC and the following environment variable is added to u-boot
+
+```
+sensor=sc2315e
+```
 
 ## module development for light extension card
 Work in progress
