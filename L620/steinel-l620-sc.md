@@ -293,12 +293,14 @@ Tps lum con:     6h : 42 53 70 55 00 72 67 65 00 00 00 00 00 00 00 00
 Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00  
 ```
 
-## OpenIPC installation using console
+## OpenIPC installation using serial console
 
-Insert a SD Card in FAT32 format with the following bin file :
+Insert a SD Card in FAT32 format with the following OpenIPC bin file :
 - u-boot : u-boot-hi3518ev300-universal.bin
 - rootfs : rootfs.squashfs.hi3518ev300 (utltimate version)
 - uImage : uImage.hi3518ev300
+
+Source : https://openipc.org/cameras/vendors/hisilicon/socs/hi3518ev300
 
 ### updating u-boot
 
@@ -373,6 +375,28 @@ sf erase 0x350000 0xa00000;
 sf write 0x42000000 0x350000 0xa00000;
 ```
 
+First boot
+
+From u-boot, restart the Camera
+
+```
+# Reboot the camera
+reset
+```
+
+After restart, kernel should be runned after u-boot. Login in the kernel with :
+
+```
+login : root
+password : <blank>
+```
+
+Enter the following command
+```
+firstboot
+```
+
+
 ## Wi-Fi card activation
 
 RTL8188FU Wifi card is nativelly managed by OpenIPC but need to be activated. Edit the file /etc/network/interfaces with vi
@@ -381,7 +405,7 @@ RTL8188FU Wifi card is nativelly managed by OpenIPC but need to be activated. Ed
 vi /etc/network/interfaces
 ```
 
-replace wlan0 section with the following
+replace wlan0 section with the following (replace SSID and password)
 
 ```
 auto wlan0
