@@ -418,10 +418,20 @@ iface wlan0 inet dhcp
     post-down killall -q wpa_supplicant
 ```
 
+reboot the camera and connect to the camera web interface
+
+![OpenIPC](/L620/ressources/OpenIPC.png)
+
 ## sensor activation
 
 Sensor is automatically detected by OpenIPC and the following environment variable is added to u-boot
+```
+...
+hisilicon: Get data from environment and set SENSOR as sc2315e
+...
+```
 
+If we show u-boot environement variables (fw_printenv from kernel), the following line is added:
 ```
 sensor=sc2315e
 ```
