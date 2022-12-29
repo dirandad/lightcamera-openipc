@@ -104,7 +104,7 @@ Uncompressing Linux... done, booting the kernel.
 
 ### create a backup
 
-Using u-boot and a sd card, it is possible to make a backup of the original firmware.
+Using u-boot with the serial console and a sd card, it is possible to make a backup of the original firmware.
 
 ```
 
@@ -150,9 +150,17 @@ sf write 0x42000000 0x0 0x1000000;
 
 ## original firmware analysis
 
-firmware analyzed : 07.12.2022
+firmware analyzed : 07.12.2022 (the one extracted with the previous method).
 
-FirmwareInfo
+### extracting firmware
+
+extracting firmware using binwalk (could be needed to install additionnal extracting tools. Check binwalk output)
+
+```
+binwalk -e fulldump20220712.bin
+```
+
+### FirmwareInfo
 
 ```
 PRODUCT_NAME=HI3518EV300_50H20L_16M_IPC_8188FTVHISI_PED_XMJP_NONE_NONE_SimpChn_NP_CamLight_V1.000.00.0.R
@@ -227,15 +235,6 @@ verify=n
 
 Environment size: 2390/65532 bytes
 ```
-### extracting firmware
-
-extracting firmware using binwalk (could be needed to install additionnal extracting tools. Check binwalk output)
-
-```
-binwalk -e fulldump20220712.bin
-```
-
-Work in progress
 
 ## light management extension card analysis
 
