@@ -39,16 +39,22 @@ Light Management card
 
 ## identification of console serial port and connection
 
+### generalities
+
 The communication between the camera module and the light management extention card is done via UART port. It appear that this UART port is the console serial port.
 The port is only used at u-boot level. The kernel use this serial port for light management.
 
 UART configuration at u-boot level : speed 115200
 
-UART configuration at kernel level : speed 9600
+UART configuration at kernel level for communication with light card : speed 9600
+
+the communication was donne with a 3.3VDC serial TTL USB adaptator. RX/TX and GND are connected to the camera board. Notice that GND are connected on all boards, but 5VDC/3.3VDC GND, 12VDC GND (light) and main power GND are not connected.
+
+### u-boot connection
 
 using a serial communication with putty, it is possible to interupt boot at u-boot level by pressing Ctrl+c.
 
-Here is the full boot output on firmware 20220712
+Here is the full u-boot output on firmware 20220712
 
 ```
 System startup
@@ -100,6 +106,8 @@ Starting kernel ...
 Uncompressing Linux... done, booting the kernel.
 ```
 
+
+
 ## original firmware backup
 
 ### create a backup
@@ -148,16 +156,37 @@ sf erase 0x0 0x1000000;
 sf write 0x42000000 0x0 0x1000000;
 ```
 
-## original firmware analysis
+## original firmware deep inside
 
 firmware analyzed : 07.12.2022 (the one extracted with the previous method).
 
-### extracting firmware
+### offline extracting firmware
 
-extracting firmware using binwalk (could be needed to install additionnal extracting tools. Check binwalk output)
+extracting firmware using binwalk (could be needed to install additionnal extracting tools. Check binwalk output).
+This extraction give the possibility to find any text of file in the firmware.
 
 ```
 binwalk -e fulldump20220712.bin
+```
+
+The result should be a folder with all the differents partition and content of the original firmware.
+This is usefull grep command to find a specific text in the whole firmware ('root' in this example) :
+
+```
+$ grep -rnw './' -e 'root'
+grep: ./u-boot.bin: binary file matches
+grep: ./cramfs-root/lib/modules/hi3516ev200_sys.ko: binary file matches
+./cramfs-root/sbin/udhcpd.conf:91:#opt rootpath   STRING                # (NFS) path to mount as root fs
+grep: ./cramfs-root/bin/Sofia: binary file matches
+./squashfs-root/etc/xmtelnetdpw:1:root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
+./squashfs-root/etc/mdev.conf:1:mmcblk[0-9]p[0-9] root:root     660 */etc/mdev/automount.sh
+./squashfs-root/etc/mdev.conf:2:mmcblk[0-9] root:root     660 */etc/mdev/automount.sh
+./squashfs-root/etc/passwd:1:root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
+./squashfs-root/etc/inittab:77:::respawn:/sbin/getty -L ttyS000 115200 vt100 -n root -I "Auto login as root ..."
+./squashfs-root/etc/group:1:root::0:
+./squashfs-root/etc/passwd-:1:root:$6$0E8/0opc$yfESwbvIce8PIEb3fCgH1kRpISzA2ffyv9VfdeM3wadmKyLfLXgNlyH3TafXvugdqPevBgE.3EZtGnP.KZZug.:0:0:root:/:/bin/sh
+grep: ./squashfs-root/bin/XmSearchIp: binary file matches
+grep: ./squashfs-root/bin/busybox: binary file matches
 ```
 
 ### FirmwareInfo
@@ -235,6 +264,48 @@ verify=n
 
 Environment size: 2390/65532 bytes
 ```
+
+### Partitions structure
+
+From the bootargs variable,
+
+```
+hi_sfc:0x40000(boot),0x540000(romfs),0x740000(user),0x180000(web),0x80000(custom),0x140000(mtd)
+```
+
+and mount command (see lower to see how to get access to kernel terminal), 
+```
+# mount
+/dev/root on / type squashfs (ro,relatime)
+proc on /proc type proc (rw,relatime)
+sysfs on /sys type sysfs (rw,relatime)
+tmpfs on /dev type tmpfs (rw,relatime)
+devpts on /dev/pts type devpts (rw,relatime,mode=600,ptmxmode=000)
+/dev/mtdblock2 on /usr type cramfs (ro,relatime)
+/dev/mtdblock3 on /mnt/web type cramfs (ro,relatime)
+/dev/mtdblock4 on /mnt/custom type cramfs (ro,relatime)
+/dev/mtdblock5 on /mnt/mtd type jffs2 (rw,relatime)
+/dev/mem on /var type ramfs (rw,relatime)
+/dev/mem2 on /utils type ramfs (rw,relatime)
+/dev/mtdblock2 on /mnt/custom/data/Fonts type cramfs (ro,relatime)
+/dev/mmcblk0 on /var/tmp/mmcblock0 type vfat (rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro)
+```
+we can analyze the partitions structure of the ROM
+
+| Part   | size (KB) | start address | Hex Size (bytes) | end address | dev point      | mount point      |
+|--------|-----------|---------------|------------------|-------------|----------------|------------------|
+| boot   | 192       |      0x0      | 0x30000          |  0x2FFFF    |                |                  |
+| env    | 64        |  0x30000      | 0x10000          |  0x3FFFF    |                |                  |
+| romfs  | 5376      |  0x40000      | 0x540000         | 0x57FFFF    | /dev/root      | / (ro)           |
+| user   | 7424      | 0x580000      | 0x740000         | 0xCBFFFF    | /dev/mtdblock2 | /usr (ro)        |
+| web    | 1536      | 0xCC0000      | 0x180000         | 0xE3FFFF    | /dev/mtdblock3 | /mnt/web (ro)    |
+| custom | 512       | 0xE40000      |  0x80000         | 0xEBFFFF    | /dev/mtdblock4 | /mnt/custom (ro) |
+| mtd    | 1280      | 0xEC0000      | 0x140000         | 0x9FFFFF    | /dev/mtdblock5 | /mnt/mtd (rw)    |
+
+
+
+
+
 
 ## light management extension card analysis
 
