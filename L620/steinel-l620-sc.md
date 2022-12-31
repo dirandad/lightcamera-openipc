@@ -44,15 +44,17 @@ Light Management card
 The communication between the camera module and the light management extention card is done via UART port. It appear that this UART port is the console serial port.
 The port is only used at u-boot level. The kernel use this serial port for light management.
 
-UART configuration at u-boot level : speed 115200
+UART configuration at u-boot level for console : speed 115200 - ASCII
 
-UART configuration at kernel level for communication with light card : speed 9600
+UART configuration at kernel level for communication with light card : speed 9600 - Hex Bate
+
+UART configuration at kernel level for console : speed 115200 - ASCII
 
 the communication was donne with a 3.3VDC serial TTL USB adaptator. RX/TX and GND are connected to the camera board. Notice that GND are connected on all boards, but 5VDC/3.3VDC GND, 12VDC GND (light) and main power GND are not connected.
 
 ### u-boot connection
 
-using a serial communication with putty, it is possible to interupt boot at u-boot level by pressing Ctrl+c.
+using a serial communication with putty, it is possible to interrupt boot at u-boot level by pressing Ctrl+c.
 
 Here is the full u-boot output on firmware 20220712
 
@@ -106,7 +108,96 @@ Starting kernel ...
 Uncompressing Linux... done, booting the kernel.
 ```
 
+Here is the list of the avaiable command the u-boot
 
+```
+hisilicon # help
+?       - alias for 'help'
+base    - print or set address offset
+bitwait - bit compare and wait for equal
+boot    - boot default, i.e., run 'bootcmd'
+bootd   - boot default, i.e., run 'bootcmd'
+bootm   - boot application image from memory
+bootp   - boot image via network using BOOTP/TFTP protocol
+clearenv- clear env partition.
+cmp     - memory compare
+cp      - memory copy
+crc32   - checksum calculation
+dcache  - enable or disable data cache
+ddr     - ddr training function
+dispaddr- display the value of 'addr'
+dispenv - display the value of 'env_var'
+dispver - display the uboot version
+env     - environment handling commands
+erase   - erase FLASH memory
+exit    - exit script
+false   - do nothing, unsuccessfully
+fatinfo - print information about filesystem
+fatload - load binary file from a dos filesystem
+fatls   - list files in a directory (default /)
+fatsize - determine a file's size
+flinfo  - print FLASH memory information
+flwrite - SPI flash sub-system
+getinfo - print hardware information
+go      - start application at address 'addr'
+gzwrite - unzip and write memory to block device
+help    - print command description/usage
+icache  - enable or disable instruction cache
+loadb   - load binary file over serial line (kermit mode)
+loadx   - load binary file over serial line (xmodem mode)
+loady   - load binary file over serial line (ymodem mode)
+loop    - infinite loop on address range
+md      - memory display
+mii     - MII utility commands
+mm      - memory modify (auto-incrementing address)
+mmc     - MMC sub system
+mmcinfo - display MMC info
+mw      - memory write (fill)
+nm      - memory modify (constant address)
+part    - disk partition related commands
+ping    - send ICMP ECHO_REQUEST to network host
+printenv- print environment variables
+protect - enable or disable FLASH write protection
+pxe     - commands to get and boot from pxe files
+reset   - Perform RESET of the CPU
+run     - run commands in an environment variable
+saveenv - save environment variables to persistent storage
+setenv  - set environment variables
+sf      - SPI flash sub-system
+showvar - print local hushshell variables
+sleep   - delay execution for some time
+squashfsload- fsload  - load binary file from a filesystem image
+
+sysboot - command to get and boot from syslinux files
+test    - minimal test like /bin/sh
+tftpboot- boot image via network using TFTP protocol
+true    - do nothing, successfully
+unzip   - unzip a memory region
+version - print monitor, compiler and linker version
+waitus  - wait for n us
+```
+
+### kernel connection
+
+As explain higher, serial console is not activated at kernel layer as it is used for the configuration of the light extention card. But for analysis propose, we can temporarly activate the serial console to access kernel. This can be done by adding the following u-boot environnement variable:
+
+```
+setenv xmuart 0; saveenv
+reset
+```
+The result is the get kernel console at au baudrate of 115200.
+
+after reboot it will be possible to connect with root login.
+The password can be identified by searching on internet de password hash find in the passwd file
+```
+# cat /etc/passwd
+root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
+```
+The result is the following :
+```
+root:xmhdipc
+```
+Then we get a full root access to the firmware.
 
 ## original firmware backup
 
@@ -115,7 +206,6 @@ Uncompressing Linux... done, booting the kernel.
 Using u-boot with the serial console and a sd card, it is possible to make a backup of the original firmware.
 
 ```
-
 # select sd card dev 0
 mmc dev 0
 
@@ -155,10 +245,68 @@ sf lock 0;
 sf erase 0x0 0x1000000;
 sf write 0x42000000 0x0 0x1000000;
 ```
+## Activate telnetd
+
+Telnetd is part of busybox binary.
+To be able to analyze online the firmware with the Light management extension card, it is necessary to remotelly access the console with telnet, and disable the console on serial port. Following some CVE alert, main firmware of small device have disable all backdoor. So to activate telnel the following action need to be done :
+
+### Add u-boot telnetctrl variable
+
+This variable can be add from u-boot or from kernel
+
+From u-boot
+
+```
+setenv telnetctrl 1; saveenv
+reset
+```
+
+From Kernel
+
+```
+XmEnv -s telnetctrl 1
+```
+
+### Start telnetd and allow Lan access
+
+By default, when activating telnetd and trying to connect, you will get a Connection Rejected error. This is because telnet seems to be enable only for connection throw wan (native vpn?). By analysing busybox binary we can find a reference to a file at /var/Telnetd_WanCheckFlag.
+Indeed, by manually creating this file, we can observe that it is deleted when telnetd is starting. But when creating it after the call of telnetd, Lan telnet clients are allowed. So the following script will enable telnetd for local client:
+
+```
+# set environnement variable to enable telnet (could need a reboot)
+XmEnv telnetctrl 1
+
+# start telnetd
+telnetd 
+sleep 1
+
+# need to exist after start of telnetd to allow local telnet connexion
+touch /var/Telnetd_WanCheckFlag
+```
+By investigating the kernel we can find this file that contain the telnet allowed account
+```
+# cat /etc/xmtelnetdpw
+root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
+```
+Fortunately the hash of root password is the same than in /etc/passwd.
+Then a remote client can connect to the IPC using the same root login and password.
+
+```
+$ telnet 192.168.1.168
+Trying 192.168.1.168...
+Connected to 192.168.1.168.
+Escape character is '^]'.
+LocalHost login: root
+Password:
+Welcome to HiLinux.
+# ls
+bin      dev      home     linuxrc  opt      root     sys      usr      var
+boot     etc      lib      mnt      proc     sbin     tmp      utils
+```
 
 ## original firmware deep inside
 
-firmware analyzed : 07.12.2022 (the one extracted with the previous method).
+firmware analyzed : 07.12.2022 (the one backup with the previous method).
 
 ### offline extracting firmware
 
@@ -189,9 +337,10 @@ grep: ./squashfs-root/bin/XmSearchIp: binary file matches
 grep: ./squashfs-root/bin/busybox: binary file matches
 ```
 
-### FirmwareInfo
+### FirmwareInfo from kernel
 
 ```
+# cat /mnt/custom/FirmwareInfo
 PRODUCT_NAME=HI3518EV300_50H20L_16M_IPC_8188FTVHISI_PED_XMJP_NONE_NONE_SimpChn_NP_CamLight_V1.000.00.0.R
 CHIP_ID=HI3518EV300
 DEVICE_ID=50H20L
@@ -302,9 +451,334 @@ we can analyze the partitions structure of the ROM
 | custom | 512       | 0xE40000      |  0x80000         | 0xEBFFFF    | /dev/mtdblock4 | /mnt/custom (ro) |
 | mtd    | 1280      | 0xEC0000      | 0x140000         | 0x9FFFFF    | /dev/mtdblock5 | /mnt/mtd (rw)    |
 
+### Starting sequence
+
+By analysing the script /etc/init.d/rcS, we can see that it manage the call to a autorun script on the SD Card
+
+```
+<fun_init definition>
+<fun_insmod_modules definition>
+<fun_start_app definition>
+
+#############################################################
+
+. /etc/init.d/dnode
+
+echo /sbin/mdev > /proc/sys/kernel/hotplug
+mdev -s
+
+#mkdir -p /dev/.udev
+#udevd --daemon
+#udevadm trigger
+
+fun_init
+
+fun_insmod_modules
+
+echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+XmServices_Mgr /lib/modules /usr/sbin/SofiaRun.sh 127.0.0.1 9578 1  # not add '&', it has invoked fork internally
+
+#netinit if=eth0  # netinit add to XmServices_Mgr
+
+mkdir -p /var/tmp/mmcblock0
+mount /dev/mmcblk0 /var/tmp/mmcblock0
+if [ -f /var/tmp/mmcblock0/xm_autorun.sh ];then
+        [ ! -z `command -v XmSearchIp` ] && XmSearchIp &
+        touch /var/tmp/completion
+        cd /var/tmp/mmcblock0/
+        chmod +x *
+        ./xm_autorun.sh &
+        cd /
+else
+    fun_start_app
+    touch /var/tmp/completion
+fi
+```
+
+So by creating a bash script on the SD Card (formatted in FAT32) call xm_autorun.sh. It will be executed at startup.
+Testing show that the SD Card will only stay in FAT32 if this file exist, otherwise the IPC will formatted it in ext2.
+
+### Configuration partition
+
+As the main part of the kernel is mount in read only, the only folder that contain local configuration is /mnt/mdt/
+```
+# ls -lsR /mnt/mtd/
+/mnt/mtd/:
+     0 drwxr-xr-x    5 root     root             0 Dec 31 12:47 Config
+     0 drwxr-xr-x    2 root     root             0 Dec 31 17:25 Log
+
+/mnt/mtd/Config:
+     2 -rw-r--r--    1 root     root          1830 Dec 31 12:47 Account1
+     2 -rw-r--r--    1 root     root          1830 Nov 29  1999 Account2
+     1 -rw-r--r--    1 root     root           549 Dec 31 12:14 AutoSearchIP
+     0 dr----x--t    2 root     root             0 Nov 29  1999 Dot
+     0 drwxr-xr-x    2 root     root             0 Dec 31 13:03 Json
+     0 -rw-r--r--    1 root     root            16 Dec 31 12:14 SerialNumber
+     0 -rw-r--r--    1 root     root            16 Dec 31 12:14 StorageCfg
+     0 -rw-r--r--    1 root     root            64 Dec 31 12:14 SysComs
+     0 -rw-rw-rw-    1 root     root           103 Dec 31 12:16 WLan
+     1 -rw-r--r--    1 root     root          1024 Jan  1  1970 __tempinfo
+     0 -rw-r--r--    1 root     root             1 Dec 31 12:14 autoswitch.cfg
+     2 -rwxr-xr-x    1 root     root          1847 Nov 29  2000 hostapd.conf
+     0 -rw-r--r--    1 root     root            70 Jan  1  1970 network
+     0 -rw-r--r--    1 root     root            71 Dec 31 12:14 network2
+     0 drwxr-xr-x    2 root     root             0 Jan  1  1970 ppp
+     0 -rw-r--r--    1 root     root            34 Dec 31 12:14 resolv.conf
+     0 -rw-r--r--    1 root     root           512 Nov 29  2000 wpa.conf
+
+/mnt/mtd/Config/Dot:
+     0 -rw-r--r--    1 root     root           256 Dec 31 12:14 0.dot
+
+/mnt/mtd/Config/Json:
+     1 -rw-r--r--    1 root     root           664 Nov 29  1999 AVEnc
+     0 -rw-r--r--    1 root     root           456 Dec 31 12:57 Alarm
+     0 -rw-r--r--    1 root     root           450 Dec 31 13:03 Detect
+     0 -rw-r--r--    1 root     root           456 Dec 31 13:03 Detect.second
+     1 -rw-r--r--    1 root     root           677 Dec 31 13:03 General
+     1 -rw-r--r--    1 root     root           677 Dec 31 13:01 General.second
+     1 -rw-r--r--    1 root     root          1447 Nov 29  2000 NetWork
+     0 -rw-r--r--    1 root     root            68 Dec 31 12:47 System
+     0 -rw-r--r--    1 root     root           250 Nov 29  2000 Uart
+
+/mnt/mtd/Config/ppp:
+
+/mnt/mtd/Log:
+     5 -rw-r--r--    1 root     root          4814 Dec 31 13:14 LogNew
+     0 -rw-r--r--    1 root     root           105 Jan  1  1970 ProductTrail
+     0 -rw-r--r--    1 root     root            12 Dec 31 17:25 SysTime
+     0 -rw-r--r--    1 root     root            12 Dec 31 12:14 cloudExAbility
+     0 -rw-r--r--    1 root     root             5 Nov 29  1999 macRandNum
+     0 -rw-r--r--    1 root     root            11 Nov 29  2000 nabto.di
+     0 -rw-r--r--    1 root     root           227 Nov 29  2000 nabto.dk
+     0 -rw-r--r--    1 root     root            11 Nov 29  2000 nabto.pi
+     0 -rw-r--r--    1 root     root             1 Nov 29  2000 nabto.sync
+ ```
+
+The interresting files are :
+
+SerialNumber : can be used to manually add your already configured camera to a Steinel App.
+```
+# cat /mnt/mtd/Config/SerialNumber
+<serial number of your camera>
+```
+
+Wifi configuration: Should be used to change or set Wifi configuration via script
+
+```
+# cat /mnt/mtd/Config/WLan
+ENABLE = 1
+SSID = <Your SSID>
+LINKMODE = 2
+ENCRY = 8
+KEYTYPE = 1
+KEYID = 0
+KEYS = <Your Key>
+KEYFLAG = 0
+
+# cat /mnt/mtd/Config/wpa.conf
+ctrl_interface_group=0
+ ap_scan=1
 
 
+network={
+ssid="<Your SSID>"
+key_mgmt=WPA-PSK
+pairwise=CCMP TKIP
+group=CCMP TKIP
+psk="<Your Key>"
+}
+```
+### Analyse using ipctool
 
+OpenIPC teams provide a very usefull tool to analyse a lot of reference of camera SoC.
+For more detail and to download this tool, go to this page : ![ipctool](https://github.com/OpenIPC/ipctool)
+
+Download this tool and copy it to a SD card in FAT32 format. Don't avoid to create a xm_autorun.sh file (empty, or with whatever action) to avoid formatting of the SD Card.
+
+ipctool will then give the following informations
+
+General Information :
+
+```
+# /tmp/mmcblock0/ipctool
+---
+chip:
+  vendor: HiSilicon
+  model: 3518EV300
+  id: 02403d06ae0038c1b370030ab0606e1423250e1c21d139e3
+board:
+  vendor: Xiongmai
+  param: HI3518EV300_50H20L
+  cloudId: 830b6fb0439efe87
+  possible-IR-cut-GPIO: 3,8
+ethernet:
+  mac: "00:12:31:88:dc:38"
+  u-mdio-phyaddr: 1
+  phy-id: 0x20669903
+  d-mdio-phyaddr: 0
+rom:
+  - type: nor
+    block: 64K
+    chip:
+      name: "XM_W25Q128FV, W25Q128JV"
+      id: 0xef4018
+    partitions:
+      - name: boot
+        size: 0x40000
+        sha1: 73b0a7e8
+        contains:
+          - name: xmcrypto
+            offset: 0x2fc00
+          - name: uboot-env
+            offset: 0x30000
+      - name: romfs
+        size: 0x540000
+        path: /,squashfs
+        sha1: b19c71af
+      - name: user
+        size: 0x740000
+        path: /mnt/custom/data/Fonts,cramfs
+        sha1: 0dc1ec6b
+      - name: web
+        size: 0x180000
+        path: /mnt/web,cramfs
+        sha1: 02ef3a0b
+      - name: custom
+        size: 0x80000
+        path: /mnt/custom,cramfs
+        sha1: c3400e52
+      - name: mtd
+        size: 0x140000
+        path: /mnt/mtd,jffs2,rw
+    size: 16M
+    addr-mode: 3-byte
+ram:
+  total: 64M
+  media: 21M
+firmware:
+  u-boot: "2016.11 (Oct 29 2018 - 16:06:3"
+  kernel: "4.9.37 (Tue Oct 29 20:49:40 CST 2019)"
+  toolchain: gcc version 6.3.0 (Heterogeneous Compiler&Codesign V100R002C00B003)
+  libc: uClibc 0.9.33.2
+  sdk: "Hi3516EV200_MPP_V1.0.1.2 B030 Release (Oct 18 2019, 18:21:00)"
+  main-app: /usr/bin/Sofia
+sensors:
+- vendor: SmartSens
+  model: SC2315E
+  control:
+    bus: 0
+    type: i2c
+    addr: 0x60
+  data:
+    type: MIPI
+    input-data-type: DATA_TYPE_RAW_10BIT
+    lane-id:
+    - 0
+    - 1
+    image: 1920x1080
+  clock: 27MHz
+```
+
+reginfo information
+
+```
+# /tmp/mmcblock0/ipctool reginfo
+muxctrl_reg0 0x100c0000 0x1 GPIO0_1 [UART0_RXD]
+muxctrl_reg1 0x100c0004 0x1 GPIO0_2 [UART0_TXD]
+muxctrl_reg2 0x100c0008 0 [GPIO0_0] UPDATE_MODE
+muxctrl_reg3 0x100c000c 0 [GPIO0_3] PWM0 UART1_TXD I2C1_SCL
+muxctrl_reg4 0x100c0010 0 [GPIO0_4] PWM1 UART1_RXD I2C1_SDA
+muxctrl_reg5 0x100c0014 0x1 EMMC_CLK [SFC_CLK] SFC_DEVICE_MODE
+muxctrl_reg6 0x100c0018 0x1 EMMC_CMD [SFC_MOSI_IO0]
+muxctrl_reg7 0x100c001c 0x1 EMMC_DATA0 [SFC_MISO_IO1]
+muxctrl_reg8 0x100c0020 0x1 EMMC_DATA3 [SFC_WP_IO2]
+muxctrl_reg9 0x100c0024 0x1 EMMC_DATA2 [SFC_HOLD_IO3]
+muxctrl_reg10 0x100c0028 0x1 EMMC_DATA1 [SFC_CSN]
+muxctrl_reg11 0x100c002c 0 [SYS_RSTN_OUT]
+muxctrl_reg12 0x100c0040 0x1 GPIO4_0 [SDIO0_CCLK_OUT] JTAG_TCK EMMC_CLK SDIO1_CCLK_OUT reserved VO_BT1120_DATA10 SFC_INPUT_SEL
+muxctrl_reg13 0x100c0044 0x1 GPIO4_1 [SDIO0_CCMD] reserved EMMC_CMD SDIO1_CCMD reserved VO_BT1120_DATA11
+muxctrl_reg14 0x100c0048 0x1 GPIO4_2 [SDIO0_CDATA0] JTAG_TMS EMMC_DATA1 SDIO1_CDATA3 reserved VO_BT1120_DATA12
+muxctrl_reg15 0x100c004c 0x1 GPIO4_3 [SDIO0_CDATA1] JTAG_TDO EMMC_DATA2 SDIO1_CDATA2 reserved VO_BT1120_DATA13
+muxctrl_reg16 0x100c0050 0x1 GPIO4_4 [SDIO0_CDATA2] JTAG_TDI EMMC_DATA3 SDIO1_CDATA1 reserved VO_BT1120_DATA14
+muxctrl_reg17 0x100c0054 0x1 GPIO4_5 [SDIO0_CDATA3] JTAG_TRSTN EMMC_DATA0 SDIO1_CDATA0 reserved VO_BT1120_DATA15
+muxctrl_reg18 0x100c005c 0x1 GPIO4_7 [SDIO0_CARD_DETECT] reserved EMMC_RST_N
+muxctrl_reg19 0x112c0000 0 [MIPI_RX_CK0N] reserved VI_CLK
+muxctrl_reg20 0x112c0004 0 [MIPI_RX_CK0P] reserved VI_DATA7
+muxctrl_reg21 0x112c0008 0 [MIPI_RX_D0N] reserved VI_DATA8
+muxctrl_reg22 0x112c000c 0 [MIPI_RX_D0P] reserved VI_DATA9
+muxctrl_reg23 0x112c0010 0 [MIPI_RX_D2N] reserved VI_DATA11
+muxctrl_reg24 0x112c0014 0 [MIPI_RX_D2P] reserved VI_DATA10
+muxctrl_reg25 0x112c0028 0x1 TEST_CLK [SENSOR_CLK] VI_DATA6 reserved GPIO5_4
+muxctrl_reg26 0x112c002c 0x1 GPIO5_5 [SENSOR_RSTN] VI_DATA4
+muxctrl_reg27 0x112c0030 0x1 GPIO5_6 [I2C0_SDA] VI_DATA3
+muxctrl_reg28 0x112c0034 0x1 GPIO5_7 [I2C0_SCL] VI_DATA5
+muxctrl_reg29 0x112c0038 0 [GPIO6_2] I2C2_SDA VI_DATA2 reserved reserved reserved reserved SPI0_SDO
+muxctrl_reg30 0x112c003c 0 [GPIO6_3] I2C2_SCL VI_DATA1 reserved reserved reserved reserved SPI0_SCLK
+muxctrl_reg31 0x112c0040 0 [GPIO5_0] reserved VI_DATA0 reserved reserved reserved reserved SPI0_CSN
+muxctrl_reg32 0x112c0044 0 [GPIO5_1] reserved TEST_MODE
+muxctrl_reg33 0x112c0048 0 [GPIO8_7] BOOT_SEL1 SENSOR_RSTN VO_BT656_CLK SDIO1_CCLK_OUT LCD_CLK VO_BT1120_CLK SPI1_SCLK
+muxctrl_reg34 0x112c004c 0 [GPIO8_5] reserved VI_HS VO_BT656_DATA0 SDIO1_CCMD LCD_HS VO_BT1120_DATA8 SPI1_SDI
+muxctrl_reg35 0x112c0050 0 [GPIO8_6] reserved VI_VS VO_BT656_DATA1 reserved LCD_VS VO_BT1120_DATA9 SPI1_SDO
+muxctrl_reg36 0x112c0054 0 [GPIO8_4] BOOT_SEL0 SENSOR_CLK PWM2 reserved LCD_DE reserved SPI1_CSN0muxctrl_reg37 0x112c0058 0 [GPIO7_0] reserved I2C2_SCL VO_BT656_DATA4 SDIO1_CDATA3 LCD_DATA4 VO_BT1120_DATA4 SPI1_CSN1
+muxctrl_reg38 0x112c005c 0 [GPIO7_1] reserved I2C2_SDA VO_BT656_DATA5 SDIO1_CDATA2 LCD_DATA5 VO_BT1120_DATA5
+muxctrl_reg39 0x112c0060 0 [GPIO7_2] reserved I2C0_SDA VO_BT656_DATA6 SDIO1_CDATA1 LCD_DATA6 VO_BT1120_DATA6
+muxctrl_reg40 0x112c0064 0 [GPIO7_3] reserved I2C0_SCL VO_BT656_DATA7 SDIO1_CDATA0 LCD_DATA7 VO_BT1120_DATA7
+muxctrl_reg41 0x112c0068 0 [GPIO6_7] reserved reserved VO_BT656_DATA3 reserved LCD_DATA3 VO_BT1120_DATA3 SPI0_CSN
+muxctrl_reg42 0x112c006c 0 [GPIO6_6] SFC_BOOT_MODE PWM3 VO_BT656_DATA2 reserved LCD_DATA2 VO_BT1120_DATA2 SPI0_SDO
+muxctrl_reg43 0x112c0070 0 [GPIO6_5] reserved UART1_RXD reserved reserved LCD_DATA1 VO_BT1120_DATA1 SPI0_SDI
+muxctrl_reg44 0x112c0074 0 [GPIO6_4] reserved UART1_TXD reserved reserved LCD_DATA0 VO_BT1120_DATA0 SPI0_SCLK
+muxctrl_reg45 0x120c0000 0 [GPIO1_0] LSADC_CH0
+muxctrl_reg46 0x120c0004 0 [GPIO1_1] LSADC_CH1
+muxctrl_reg47 0x120c0010 0x2 JTAG_TRSTN SPI1_CSN0 [GPIO1_4] reserved UART2_RXD I2S_MCLK
+muxctrl_reg48 0x120c0014 0x2 JTAG_TCK SPI1_SCLK [GPIO1_5] reserved UART2_TXD I2S_BCLK
+muxctrl_reg49 0x120c0018 0x2 JTAG_TMS SPI1_SDI [GPIO1_6] PWM2 UART2_CTSN I2S_WS
+muxctrl_reg50 0x120c001c 0x2 JTAG_TDO SPI1_SDO [GPIO1_7] reserved UART2_RTSN I2S_SD_RX
+muxctrl_reg51 0x120c0020 0x3 JTAG_TDI SPI1_CSN1 GPIO2_0 [SDIO0_CARD_POWER_EN_N] PWM3 I2S_SD_TX
+muxctrl_reg52 0x120f0010 0x4 PWR_RSTN
+muxctrl_reg53 0x120f0014 0 [PWR_SEQ]
+muxctrl_reg54 0x120f0018 0x4 PWR_BUTTON
+muxctrl_reg55 0x120f0020 0x8 PWR_WAKEUP
+```
+
+Gpio value and change
+
+```
+# /tmp/mmcblock0/ipctool gpio scan
+Gr: 0, Addr:0x120B0064, Data:0x01 = 0bxxx00xx1, Addr:0x120B0400, Dir:0x08 = 0bxxx01xx0
+Gr: 1, Addr:0x120B13CC, Data:0xF0 = 0b1111xx00, Addr:0x120B1400, Dir:0x51 = 0b0101xx01
+Gr: 2, Addr:0x120B2000, Data:0x00 = 0bxxxxxxxx, Addr:0x120B2400, Dir:0x00 = 0bxxxxxxxx
+Gr: 3, Addr:0x120B3000, Data:0x00 = 0bxxxxxxxx, Addr:0x120B3400, Dir:0x01 = 0bxxxxxxxx
+Gr: 4, Addr:0x120B4000, Data:0x00 = 0bxxxxxxxx, Addr:0x120B4400, Dir:0x00 = 0bxxxxxxxx
+Gr: 5, Addr:0x120B500C, Data:0x00 = 0bxxxxxx00, Addr:0x120B5400, Dir:0x00 = 0bxxxxxx00
+Gr: 6, Addr:0x120B63F0, Data:0x20 = 0b001000xx, Addr:0x120B6400, Dir:0x00 = 0b000000xx
+Gr: 7, Addr:0x120B703C, Data:0x00 = 0bxxxx0000, Addr:0x120B7400, Dir:0x00 = 0bxxxx0000
+Gr: 8, Addr:0x120B83C0, Data:0x80 = 0b1000xxxx, Addr:0x120B8400, Dir:0x00 = 0b0000xxxx
+======================================================================================
+Waiting for while something changes...
+======================================================================================
+Gr:1, Addr:0x120B13CC, Data:0xF0 = 0b1111xx00 --> 0xD0 = 0b1101xx00
+Mask: "devmem 0x120B1080 32 0x00", GPIO1_5, GPIO13, Dir:Input, Level:0
+======================================================================================
+Gr:1, Addr:0x120B13CC, Data:0xD0 = 0b1101xx00 --> 0xF0 = 0b1111xx00
+Mask: "devmem 0x120B1080 32 0x20", GPIO1_5, GPIO13, Dir:Input, Level:1
+======================================================================================
+Gr:1, Addr:0x120B13CC, Data:0xF0 = 0b1111xx00 --> 0xD0 = 0b1101xx00
+Mask: "devmem 0x120B1080 32 0x00", GPIO1_5, GPIO13, Dir:Input, Level:0
+======================================================================================
+Gr:1, Addr:0x120B13CC, Data:0xD0 = 0b1101xx00 --> 0xF0 = 0b1111xx00
+Mask: "devmem 0x120B1080 32 0x20", GPIO1_5, GPIO13, Dir:Input, Level:1
+```
+
+ipctool can also be used to create a backup/dump of the original firmwware
+```
+# /tmp/mmcblock0/ipctool backup /tmp/mmcblock0/fulldump20221231_ipctool.bin
+---
+<ipctool generales informations>
+---
+state: saveStart
+state: saveEnd, 0
+```
 
 
 ## light management extension card analysis
@@ -363,6 +837,8 @@ Tps lum con:     4h : 42 53 6B 55 00 72 67 65 00 00 00 00 00 00 00 00
 Tps lum con:     6h : 42 53 70 55 00 72 67 65 00 00 00 00 00 00 00 00                         
 Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00  
 ```
+
+
 
 ## OpenIPC installation using serial console
 
