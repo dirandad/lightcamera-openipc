@@ -780,6 +780,54 @@ state: saveStart
 state: saveEnd, 0
 ```
 
+## Specific GPIO analysis
+
+### Method
+
+Dynamic investiguation:
+
+Two tools are used :
+- ipctool: check gpio value change in realtime
+```
+ipctool gpio scan
+```
+
+- XmGpio: in original firmware, the tool XmGpio can be used read and write GPIO
+```
+Usage: XmGpio [sethigh,setlow,setdirin,setdirout,read,print][OPTION] ...
+        Notice:
+                Cmd(sethigh,setlow,...) is case insensitive.
+        sethigh GpioGroup GpioNum       Set Gpioxx_xx High Level.
+        setlow GpioGroup GpioNum        Set Gpioxx_xx Low Level.
+        setdirin GpioGroup GpioNum      Set Gpioxx_xx Direction Input.
+        setdirout GpioGroup GpioNum     Set Gpioxx_xx Direction Output.
+        read GpioGroup GpioNum  Read Gpioxx_xx Value.
+        print   Print Used Gpios.
+        -h,-help,--help: Print Usage.
+        For examples:
+                XmGpio sethigh 5 6
+                XmGpio setdirin 5 6
+```
+
+### Results
+
+The following table present the results of this analysis
+
+| gpio     | direction | description                      | Value                |
+|----------|-----------|----------------------------------|----------------------|
+|  3 = 0_3 | out       | speaker activation               | 0=off, 1=on          |
+| 53 = 6_5 | in        | SD Card inserted                 | 0=on, 1=off          |
+| 12 = 1_4 | out       | Green/Red duo Led                | see truthtable below |
+| 13 = 1_5 | in        | Alarm from PIR                   | 0=alarm, 1=no alarm  |
+| 14 = 1_6 | out       | Green/Red duo Led                | see truthtable below |
+| 15 = 1_7 | in        | Reset button                     | 0=press, 1=release   |
+
+Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The following trust table is respected:
+|            | GPIO12 = 0 | GPIO12 = 1 |
+|------------|------------|------------|
+| GPIO14 = 0 | off        | Green      |
+| GPIO14 = 1 | Red        | off        |
+
 
 ## light management extension card analysis
 
@@ -787,30 +835,37 @@ state: saveEnd, 0
   - 2 PIR Sensors
   - 1 Light Sensor
   - 1 Led
-  - Based on microchip GX20-2120 (SSOP-20 format) ref U2
+  - Based on microchip GX20-2120 (SSOP-20 format) ref U2. No document found about this reference. May be a false ref.
 
 pinout of the U2 microchip :
 
 ![Steinel L620 U2 pineout](/L620/ressources/steinel-l-620-sc-U2-pinout.png)
 
-the communication bettween the light managment card and the camera proc is serial using console serial port.
-Communication is only managed from camera to light management card. Light management card don't send any data to the module.
+the communication bettween the light managment card and the camera SoC is serial using console serial port.
+Communication is only managed from camera to light management card. Light management don't seems to send any data to the module.
 
-All configuration done from the Steinel App send a 16 bytes data format to the light management module.
+All configuration done from the Steinel App (constant light settings) send a 16 bytes data format to the light management module.
+
+Data structure seems to be the following : 
 
 ```
-Light mode : ON     : 42 4D 64 55 00 xx xx xx 00 00 00 00 00 00 00 00
-Light mode : DETECT : 42 4D 62 55 00 xx xx xx 00 00 00 00 00 00 00 00
-Light mode : CONFIG : 42 4D 65 55 00 xx xx xx 00 00 00 00 00 00 00 00
+42 <2 digits command> <2 digits value> 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+```
 
-Alarm mode : ON/TON : 42 41 62 55 00 xx xx xx 00 00 00 00 00 00 00 00
-Alarm mode : OFF    : 42 41 7A 55 00 xx xx xx 00 00 00 00 00 00 00 00
 
-Resume/quit:        : 42 46 62 55 00 49 6E 63 00 00 00 00 00 00 00 00
+```
+Resume/quit app:    : 42 46 62 55 00 49 6E 63 00 00 00 00 00 00 00 00 : No action
 
-Dist detec :     0% : 42 44 61 55 00 72 67 65 00 00 00 00 00 00 00 00  
+Light mode : ON     : 42 4D 64 55 00 49 6E 63 00 00 00 00 00 00 00 00 : Switch fixed on light
+Light mode : DETECT : 42 4D 62 55 00 49 6E 63 00 00 00 00 00 00 00 00 : Switch off, and active detect mode
+Light mode : CONFIG : 42 4D 65 55 00 49 6E 63 00 00 00 00 00 00 00 00 : 
+
+Alarm mode : ON/TON : 42 41 62 55 00 49 6E 63 00 00 00 00 00 00 00 00 : 
+Alarm mode : OFF    : 42 41 7A 55 00 49 6E 63 00 00 00 00 00 00 00 00
+
+Dist detect :     0% : 42 44 61 55 00 72 67 65 00 00 00 00 00 00 00 00  
                           62-78
-Dist detec :   100% : 42 44 79 55 00 72 67 65 00 00 00 00 00 00 00 00
+Dist detect :   100% : 42 44 79 55 00 72 67 65 00 00 00 00 00 00 00 00
 
 Sensor     : moon   : 42 58 61 55 00 72 67 65 00 00 00 00 00 00 00 00
                           62-76
