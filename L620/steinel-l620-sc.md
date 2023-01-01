@@ -786,7 +786,7 @@ state: saveEnd, 0
 
 Dynamic investiguation:
 
-Two tools are used :
+Three tools are used :
 - ipctool: check gpio value change in realtime
 ```
 ipctool gpio scan
@@ -809,18 +809,73 @@ Usage: XmGpio [sethigh,setlow,setdirin,setdirout,read,print][OPTION] ...
                 XmGpio setdirin 5 6
 ```
 
+- XDemux: in original firmware, the tool XmDeux can be used to see how are used each GPIO
+```
+Usage: XmDemux [getinfo,request,cancelrequest,print][OPTION] ...
+        Notice:
+                1,Cmd(getinfo,request,...) is case insensitive.
+                2,<print> Need No Args,Print Used Pins.
+        default:        Get Demux PinNames From DemuxConfigFile.cfg.
+        -c <config file>:       Get Demux PinNames From <config file>.
+        -p <pin names>: Get Demux PinNames From <pin names>,
+                pin names' delimiter is: '|'.
+        -h,-help,--help: Print Usage.
+        For examples:
+                XmDemux getinfo
+                XmDemux getinfo -c ./MyDemuxConfigFile
+                XmDemux getinfo -p "GPIO5_0|GPIO5_1|GPIO5_2|GPIO5_2"
+                XmDemux request
+                XmDemux request -c ./MyDemuxConfigFile
+                XmDemux request -p "GPIO5_0|GPIO5_1|GPIO5_2|GPIO5_2"
+                XmDemux print
+```
+
 ### Results
 
 The following table present the results of this analysis
 
 | gpio     | direction | description                      | Value                |
 |----------|-----------|----------------------------------|----------------------|
-|  3 = 0_3 | out       | speaker activation               | 0=off, 1=on          |
-| 53 = 6_5 | in        | SD Card inserted                 | 0=on, 1=off          |
+|  0 = 0_0 | -         | register 0x100c0008              | -                    |
+|  1 = 0_1 | in        | UART0_RXD                        | -                    |
+|  2 = 0_2 | out       | UART0_TXD                        | -                    |
+|  3 = 0_3 | out       | Audio Power                      | 0=off, 1=on          |
+|  4 = 0_4 | -         | register 0x100c0010              | -                    |
+|  8 = 1_0 | out       | IRCut1                           | ?                    |
+|  9 = 1_1 | -         | register 0x120c0004              | -                    |
 | 12 = 1_4 | out       | Green/Red duo Led                | see truthtable below |
 | 13 = 1_5 | in        | Alarm from PIR                   | 0=alarm, 1=no alarm  |
 | 14 = 1_6 | out       | Green/Red duo Led                | see truthtable below |
 | 15 = 1_7 | in        | Reset button                     | 0=press, 1=release   |
+| 16 = 2_0 | -         | SDIO0_CARD_POWER_EN_N            | ?                    |
+| 32 = 4_0 | -         | SDIO0_CCLK_OUT                   | ?                    |
+| 33 = 4_1 | -         | SDIO0_CCMD                       | ?                    |
+| 34 = 4_2 | -         | SDIO0_CDATA0                     | ?                    |
+| 35 = 4_3 | -         | SDIO0_CDATA1                     | ?                    |
+| 36 = 4_4 | -         | SDIO0_CDATA2                     | ?                    |
+| 37 = 4_5 | -         | SDIO0_CDATA3                     | ?                    |
+| 39 = 4_7 | -         | SDIO0_CARD_DETECT                | ?                    |
+| 40 = 5_0 | -         | register 0x112c0040              | ?                    |
+| 41 = 5_1 | -         | register 0x112c0044              | ?                    |
+| 44 = 5_4 | -         | SENSOR_CLK                       | ?                    |
+| 45 = 5_5 | -         | SENSOR_RSTN                      | ?                    |
+| 46 = 5_6 | -         | I2C0_SDA                         | ?                    |
+| 47 = 5_7 | -         | I2C0_SCL                         | ?                    |
+| 50 = 6_2 | -         | register 0x112c0038              | ?                    |
+| 51 = 6_3 | -         | register 0x112c003c              | ?                    |
+| 52 = 6_4 | -         | register 0x112c0074              | ?                    |
+| 53 = 6_5 | -         | register 0x112c0070              | ?                    |
+| 54 = 6_6 | -         | register 0x112c006c              | ?                    |
+| 55 = 6_7 | -         | IRStatusGet                      | ?                    |
+| 56 = 7_0 | -         | register 0x112c0058              | ?                    |
+| 57 = 7_1 | -         | register 0x112c005c              | ?                    |
+| 58 = 7_2 | -         | register 0x112c0060              | ?                    |
+| 59 = 7_3 | -         | register 0x112c0064              | ?                    |
+| 68 = 8_4 | -         | register 0x112c0054              | ?                    |
+| 69 = 8_5 | -         | register 0x112c004c              | ?                    |
+| 70 = 8_6 | -         | register 0x112c0050              | ?                    |
+| 71 = 8_7 | -         | register 0x112c0048              | ?                    |
+
 
 Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The following trust table is respected:
 |            | GPIO12 = 0 | GPIO12 = 1 |
