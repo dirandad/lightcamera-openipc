@@ -2,6 +2,18 @@
 
 ![Steinel L620](../ressource/steinel-l-620-cam-sc-small.jpg)
 
+-[X] Access to the Camera via Serial
+-[X] Analyse Original Firmware
+-[X] Install OpenIPC Using Serial
+-[X] Active Wifi Card and networking
+-[X] Active Sensor
+- Manage communication with light extension card over webservice
+   -[ ] Expose detector status
+   -[ ] give light control : ON/OFF/Variable
+   -[ ] manage light parameters : ON/OFF management, Light %,...
+   -[ ] Manage detector parameters : sensibility, duration,...
+-[X] Create a Migration Procedure without using Serial
+
 ## Camera dismounting and hardware identification
 
 Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible without breaking a foot of the camera support. This confirm the need of developping a script to install a new firmware without need to open the camera. All connectors are stick (stick can be removed, sometime with breaking a connector...).
