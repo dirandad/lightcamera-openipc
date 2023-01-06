@@ -1138,13 +1138,18 @@ assign letter=<letter>
 ### 2. Backup Original Firmware
 
 2.1. Copy ipctool in root of the SD Card.
+
 2.2. Copy [xm_autorun.sh](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/xm_autorun.sh) script in root of the SD Card.
 this script will:
    - Eanble Telnetd on port 23
    - Create a Backup of the EPPROM to the SD Card
+
 2.3. Switch Off the Camera
+
 2.4. Insert the SD Card in Slot
+
 2.5. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
+
 2.6. Remove the SD Card and plug it in your computer. You should observe the following file:
      - test.txt: The script has been launched
      - ipctoolbackup.txt: The script has launched backup command
@@ -1163,6 +1168,7 @@ rootfs.img
 u-boot.env.img
 uImage.img
 ```
+
 3.2. Edit ```InstallDesc``` with the following content
 ```
 {
@@ -1199,6 +1205,7 @@ The firmware is ready to be updated.
 ### 4. Update firmware using XM Device Manager
 
 4.1. Open DeviceManager
+
 4.2. Add the Camera to Device Manager
 
 ![Device Manager Configuration](/L620/ressources/devicemanager-config1.png)
@@ -1208,6 +1215,7 @@ The firmware is ready to be updated.
 ![Device Manager Configuration](/L620/ressources/devicemanager-config2.png)
 
 4.4. Click Upgrade
+
 4.5. Upload and Upgrade sequence should run and finish
 
 At this point, OpenIPC Lite is installed and running, but as it does not include Wifi Card Driver, the camera don't have network any more and the only way to access the camera is the SD Card.
@@ -1215,24 +1223,34 @@ At this point, OpenIPC Lite is installed and running, but as it does not include
 ### 5. Upgrade to OpenIPC ultimate
 
 5.1. Format SD Card in FAT32
+
 5.2. Using 7-Zip open ```openipc.hi3518ev300-nor-ultimate.tgz``` and it contained archive ```openipc.hi3518ev300-nor-ultimate.tar```
+
 5.3. Copy both ```rootfs.squashfs.hi3518ev300``` and ```uImage.hi3518ev300``` in the root of the SD Card
+
 5.4. Create ```autoconfig``` folder on the SD Card. All the content of this folder will be copied by OpenIPC in the EPPROM at the corresponding path.
+
 5.5. Create the path Folder ```etc/network/``` in this ```autoconfig``` folder
+
 5.6. Copy the file [interface](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/interfaces). This file is a copy of the original Interface file with eth0 in manual (```manual eth0```) to improve 
+
 5.7. Copy [autoconfig.sh](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/autoconfig.sh) script in root of the SD Card.
 this script will:
    - Upgrade the firmware using ```sysupgrade``` command
    - set env variable ```osmem``` to 43M as it is in original firmware
    - disable kernel serial console by modifying env variable ```bootargs```
+
 5.8. Switch Off the Camera
+
 5.9. Insert the SD Card in Slot
+
 5.10. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via ssh. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
+
 5.11. Remove the SD Card and plug it in your computer. You should observe the following file:
      - autoconfig.txt: The script has been launched
      - sysupgrade.txt: The script has launched backup command
 
-at this point it should be possible to connect the Camera url ```http://<ip>:85/```.
+At this point it should be possible to connect the Camera url ```http://<ip>:85/```.
 
 ### 6. CamLight Integration
 
