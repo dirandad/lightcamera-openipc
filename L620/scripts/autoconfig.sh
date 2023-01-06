@@ -8,6 +8,8 @@ sysupgrade -z --kernel=/mnt/mmcblk0p1/uImage.hi3518ev300 --rootfs=/mnt/mmcblk0p1
 
 fw_setenv osmem 43M
 
+fw_setenv bootargs osmem=\${osmem} panic=20 rootfstype=squashfs root=/dev/mtdblock3 init=/init mtdparts=hi_sfc:256k\(boot\),64k\(wtf\),2048k\(kernel\),5120k\(rootfs\),-\(rootfs_data\) mmz_allocator=hisi
+
 reboot
 
 echo "<<<<<<<<<<<<<<<<<<<<<<<<<<< xm_autoconfig.sh done >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
