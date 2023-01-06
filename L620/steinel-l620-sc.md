@@ -2,17 +2,17 @@
 
 ![Steinel L620](../ressource/steinel-l-620-cam-sc-small.jpg)
 
--[X] Access to the Camera via Serial
--[X] Analyse Original Firmware
--[X] Install OpenIPC Using Serial
--[X] Active Wifi Card and networking
--[X] Active Sensor
+- [X] Access to the Camera via Serial
+- [X] Analyse Original Firmware
+- [X] Install OpenIPC Using Serial
+- [X] Active Wifi Card and networking
+- [X] Active Sensor
 - Manage communication with light extension card over webservice
-   -[ ] Expose detector status
-   -[ ] give light control : ON/OFF/Variable
-   -[ ] manage light parameters : ON/OFF management, Light %,...
-   -[ ] Manage detector parameters : sensibility, duration,...
--[X] Create a Migration Procedure without using Serial
+   - [ ] Expose detector status
+   - [ ] give light control : ON/OFF/Variable
+   - [ ] manage light parameters : ON/OFF management, Light %,...
+   - [ ] Manage detector parameters : sensibility, duration,...
+- [X] Create a Migration Procedure without using Serial
 
 ## Camera dismounting and hardware identification
 
