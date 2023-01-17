@@ -30,5 +30,13 @@ The development environement is a cross compilation environement. In this case, 
 
 ## Application Structure
 
-## Application Structure
+
+
+## Resources and Reference
+
+LighCam use the following source :
+- Embedded C MQTT Client: [Paho MQTT Client](https://www.eclipse.org/paho/index.php?page=clients/c/embedded/index.php)
+- YAML code : [Yaml code](https://github.com/tlsa/libcyaml)
+
+
 
