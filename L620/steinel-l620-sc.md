@@ -960,9 +960,9 @@ Tps lum con:     6h : 42 53 70 55 00 72 67 65 00 00 00 00 00 00 00 00
 Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00  
 ```
 
-
-
 ## OpenIPC installation using serial console
+
+This installation method need physical access to the serial port, and then dismount the camera.
 
 Insert a SD Card in FAT32 format with the following OpenIPC bin file :
 - u-boot : u-boot-hi3518ev300-universal.bin
@@ -1108,12 +1108,10 @@ sensor=sc2315e
 ## module development for light extension card
 Work in progress
 
-## module integration in OpenIPC
-Work in progress
 
 ## Migration Procedure
 
-Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (2.2.12.26).
+Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26).
 
 This migration is based on [Coupler](https://github.com/OpenIPC/coupler) method, but customised. Coupler is a project that generate specific OpenIPC package that can be used to migrate to OpenIPC using original vendor firmware update solution. In this case, the camera are base on XiongMai firmware and these cameras can be updated using XM DeviceManager software. Coupler provide package for these camera. We will manually do a specific package for Steinel L620
 
@@ -1270,6 +1268,8 @@ to be done
 
 
 
+## module integration in OpenIPC
+Work in progress
 
 
 
