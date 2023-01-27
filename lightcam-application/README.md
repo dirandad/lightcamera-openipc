@@ -5,18 +5,24 @@ Embedded application developped in c to expose/manage light extension card.
 ## Introduction
 
 The application have the following functionnalities:
+
 - Manage YAML file
   - configuration for MQTT server
   - configuration for Serial port
+
 - Manage Serial communication with extention card
   - Send configuration using Bytes array
+
 - Manage register configuration
   - Read and Write GPIO (Read Value, Write Value, Write Direction)
   - Configure register values
+
 - Manage Leds
   - Switch On and Off Led with application Status
+
 - Manage Alarm (detector) status
   - Retrive detector status
+
 - Integrate a MQTT Client
   - Send Watchdog to MQTT Server
   - Receive Light Configuration from MQTT Server and send it to serial
@@ -38,8 +44,17 @@ $ cd arm-openipc-linux-musleabi_sdk-buildroot/
 $ ./relocate-sdk.sh
 ```
 
-## Application Structure
+## Build application
 
+Application can be compiled using the following instructions
+
+```
+$ git clone https://github.com/dirandad/lightcamera-openipc/
+
+$ cd ~/lightcamera-openipc/lightcam-application/src/
+```
+
+Edit build_
 
 
 ## Resources and Reference
