@@ -8,10 +8,10 @@
 - [X] Active Wifi Card and networking
 - [X] Active Sensor
 - Manage communication with light extension card over webservice
-   - [ ] Expose detector status
-   - [ ] give light control : ON/OFF/Variable
-   - [ ] manage light parameters : ON/OFF management, Light %,...
-   - [ ] Manage detector parameters : sensibility, duration,...
+   - [X] Expose detector status
+   - [X] give light control : ON/OFF/Variable
+   - [X] manage light parameters : ON/OFF management, Light %,...
+   - [X] Manage detector parameters : sensibility, duration,...
 - [X] Create a Migration Procedure without using Serial
 
 ## Camera dismounting and hardware identification
