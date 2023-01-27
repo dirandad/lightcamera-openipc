@@ -9,7 +9,7 @@ This project try to install [OpenIPC](https://openipc.org/) on Light Camera. Any
 
 ### Light Camera should be :
 - Steinel L600
-- [Steinel L620](/L620//steinel-l620-sc.md)
+- [Steinel L620](/L620/README.md)
 - Steinel XLED Cam 1
 - Lutec Elara
 
