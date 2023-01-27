@@ -28,6 +28,17 @@ The development environement is a cross compilation environement. In this case, 
 - Ubuntu 22.04 WSL on Windows 11
 - Toolchain for OpenIPC to be able to compile c code for OpenIPC
 
+```
+$ wget https://github.com/OpenIPC/firmware/releases/download/latest/cortex_a7_thumb2-gcc8.4.0-musl-4_9-1e913a17.tgz
+
+$ tar zxvf cortex_a7_thumb2-gcc8.4.0-musl-4_9-1e913a17.tgz
+
+$ cd arm-openipc-linux-musleabi_sdk-buildroot/
+
+$ ./relocate-sdk.sh
+
+```
+
 ## Application Structure
 
 
