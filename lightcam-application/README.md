@@ -36,7 +36,6 @@ $ tar zxvf cortex_a7_thumb2-gcc8.4.0-musl-4_9-1e913a17.tgz
 $ cd arm-openipc-linux-musleabi_sdk-buildroot/
 
 $ ./relocate-sdk.sh
-
 ```
 
 ## Application Structure
