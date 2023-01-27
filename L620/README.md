@@ -1106,7 +1106,9 @@ sensor=sc2315e
 ```
 
 ## module development for light extension card
-Work in progress
+
+A specific application is developped to manage light extension card and permite remote control. See [lightcam-application](https://github.com/dirandad/lightcamera-openipc//lightcam-application/README.md)
+
 
 
 ## Migration Procedure
