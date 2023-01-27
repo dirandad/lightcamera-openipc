@@ -52,10 +52,22 @@ Application can be compiled using the following instructions
 $ git clone https://github.com/dirandad/lightcamera-openipc/
 
 $ cd ~/lightcamera-openipc/lightcam-application/src/
+
+$ chmod +x build_lightcam.sh
 ```
 
-Edit build_
+Edit `build_lightcam.sh` and set variables
 
+```
+TOOLCHAIN_PATH="/arm-openipc-linux-musleabi_sdk-buildroot/bin/"
+CAMIP="192.168.1.1"
+```
+
+Then build the application with
+
+```
+$ ./build_lightcam.sh
+```
 
 ## Resources and Reference
 
