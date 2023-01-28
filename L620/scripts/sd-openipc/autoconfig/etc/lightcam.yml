@@ -1,10 +1,1 @@
-mqtt: 
-    server: "192.168.10.25"
-    port: 1883
-    username: "ad-do-cami02"
-    password: "qLGpLKBe2WG5DrohRl4f"
-    topic: "ad-do-cami02"
-    detectortempo: 60.0
-serial: 
-    port: "/dev/ttyAMA0"
-    baudrate: 9600
+../../../../../lightcam-application/src/lightcam.yml
