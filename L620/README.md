@@ -22,7 +22,7 @@ Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible with
 - SoC : Hisilicon HI3518EV300
 - Device ID : 50H20L
 - Sensor : SC2315E
-- Wifi Card : Realtek RTL8188FU (to be confirmed)
+- Wifi Card : Realtek RTL8188FU
 - Light managment card : see above
 
 ### Wiring diagram of the light
@@ -1109,15 +1109,11 @@ sensor=sc2315e
 
 A specific application is developped to manage light extension card and permite remote control. See [lightcam-application](https://github.com/dirandad/lightcamera-openipc/tree/main/lightcam-application)
 
-
-
 ## Migration Procedure
 
 Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26).
 
-This migration is based on [Coupler](https://github.com/OpenIPC/coupler) method, but customised. Coupler is a project that generate specific OpenIPC package that can be used to migrate to OpenIPC using original vendor firmware update solution. In this case, the camera are base on XiongMai firmware and these cameras can be updated using XM DeviceManager software. Coupler provide package for these camera. We will manually do a specific package for Steinel L620
-
-But Coupler firmware package include Lite version of OpenIPC and this version does not include Wifi card driver rtl8188fu. It will then be needed to migrate to ultimate version to get it work.
+This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) method, but as a better option, migration is now based on ```ipctool upgrade``` function that will use a specific bundle that we will create in the next step.
 
 ### 0. Prerequisites
 
@@ -1125,10 +1121,8 @@ Before to start the upgrade procedure, you need to have the following:
 - The Steinel L620 SC Camera running with official firmware and configured
 - A 8GB SD Card that you can format in FAT32
 - ipctool : [ipctool](https://github.com/OpenIPC/ipctool)
-- XiongMai Device Manager installed : [DeviceManager](https://www.xiongmaitech.com/en/index.php/service/down_detail/83/187)
 - 7-Zip installed : [7-Zip](https://www.7-zip.org/)
-- Last OpenIPC firmware for HI3518EV300 in both lite and ultimate version : [openipc.hi3518ev300-nor-lite.tgz](https://github.com/OpenIPC/firmware/releases/download/latest/openipc.hi3518ev300-nor-lite.tgz) [openipc.hi3518ev300-nor-ultimate.tgz](https://github.com/OpenIPC/firmware/releases/download/latest/openipc.hi3518ev300-nor-ultimate.tgz)
-- A base Coupler firmware to custom: [00052520_OpenIPC_50H20L_18EV300_S38.bin](https://github.com/OpenIPC/coupler/releases/download/latest/00052520_OpenIPC_50H20L_18EV300_S38.bin)
+- Last OpenIPC firmware for HI3518EV300 in ultimate version : [openipc.hi3518ev300-nor-ultimate.tgz](https://github.com/OpenIPC/firmware/releases/download/latest/openipc.hi3518ev300-nor-ultimate.tgz)
 
 ### 1. Format SD Card
 
@@ -1146,132 +1140,145 @@ list partition
 active
 assign letter=<letter>
 ```
-
 ### 2. Backup Original Firmware
 
-2.1. Copy ipctool in root of the SD Card.
+2.1. Format SD Card in FAT32.
 
-2.2. Copy [xm_autorun.sh](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/xm_autorun.sh) script in root of the SD Card.
-this script will:
-   - Eanble Telnetd on port 23
-   - Create a Backup of the EPPROM to the SD Card
+2.2. Copy the content of the [sd-steinel](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-steinel) structure on the SD Card. Content of the SD Card must be at minimum the following:
+```
+sd
+├── ipctool			// OpenIPC multi tool
+└── xm_autorun.sh	// specific script
+```
 
-2.3. Switch Off the Camera
+`xm_autorun.sh` is a bash script that will be executed by Steinel Firmware during startup. If this file is not present on the SD Card, the SD Card is automatically formatted. This script will do the following task :
+- Enable wlan like if the SD Card was not present
+- Enable `telnetd` on port 23 so that is will be able to connect using `root:xmdhipc` credential to remotelly connect the camera
+- If `ipctool` is present on the SD Card, a dump of the current firmware from the EPPROM will be copied to the SD Card.
 
-2.4. Insert the SD Card in Slot
+2.3. Switch Off the Camera and insert the SD Card in Slot
 
-2.5. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
+2.4. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
 
-2.6. Remove the SD Card and plug it in your computer. You should observe the following file:
-     - test.txt: The script has been launched
-     - ipctoolbackup.txt: The script has launched backup command
-     - firmwaredump.bin: A backup has beed done!
+2.5. Remove the SD Card and plug it in your computer. You should observe the following file:
+```
+sd
+├── ipctool
+├── test.txt			// The script has been launched
+├── ipctoolbackup.txt	// The script has launched backup command
+├── firmwaredump.bin	// A backup has beed done!
+└── xm_autorun.sh
+```
 
 At this step, it is highly recommanded to extract this firmwarefile using ```binwalk -e firmwaredump.bin``` and check that this file contain a none corrupted dump. 
 
-### 3. Create a Firmware Package based on Coupler methode
+### 3. Create a Firmware bundle for ipctool upgrade
 
-3.1. Using 7-Zip extract Coupler firmware 00052520_OpenIPC_50H20L_18EV300_S38.bin. You should get inside the following files:
+3.1. Clone GitHub ipctool repository and explore it
 ```
-InstallDesc
-mtd-x.jffs2.img
-Readme.txt
-rootfs.img
-u-boot.env.img
-uImage.img
+git clone https://github.com/OpenIPC/ipctool
+
+cd ipctool/tools/
+```
+3.2. Run the following command to create a bundle for L620 including OpenIPC u-boot and corresponding OpenIPC ultimate firmware for a 16MB Flash size camera.
+
+```
+./make_images.sh hi3518ev300 ultimate
 ```
 
-3.2. Edit ```InstallDesc``` with the following content
-```
-{
- "UpgradeCommand": [{
- "Command": "Burn",
- "FileName": "uImage.img"
- }, {
- "Command": "Burn",
- "FileName": "rootfs.img"
- }, {
- "Command": "Burn",
- "FileName": "u-boot.env.img"
- }, {
- "Command": "Burn",
- "FileName": "mtd-x.jffs2.img"
- }],
- "SupportFlashType": [
- {
- "FlashID": "SkipCheck"
- }
- ],
- "Hardware": "HI3518EV300_50H20L",
- "HardWareVersion": 1,
- "DevID": "00052520XXXXX000000000000",
- "CompatibleVersion" : 2,
- "Vendor": "SkipCheck",
- "WifiDriverType": "8188ftv"
-}
-```
-3.3. Repack the file bin file using 7-zip with this new version of ```InstallDesc```
-
+If the script succed, you will find the bundle in `/output/upgrade.hi3518ev300`
 The firmware is ready to be updated.
 
-### 4. Update firmware using XM Device Manager
+### 4. Update firmware using ipctool
 
-4.1. Open DeviceManager
+4.1. Copy `upgrade.hi3518ev300` on the SD Card. Content of the SD Card must be at minimum the following:
 
-4.2. Add the Camera to Device Manager
+```
+sd
+├── ipctool
+├── upgrade.hi3518ev300
+└── xm_autorun.sh
+```
 
-![Device Manager Configuration](/L620/ressources/devicemanager-config1.png)
+4.2. Switch Off the Camera and insert the SD Card in Slot
 
-4.3. Select the customised Coupler Firmware
+4.3. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet.
 
-![Device Manager Configuration](/L620/ressources/devicemanager-config2.png)
+4.4. Connect to the camera using telnet using `root:xmdhipc` credential
 
-4.4. Click Upgrade
+4.5. Control that the SD Card is avaiable at `/tmp/mmcblock0/`
 
-4.5. Upload and Upgrade sequence should run and finish
+```
+cd /tmp/mmcblock0/
 
-At this point, OpenIPC Lite is installed and running, but as it does not include Wifi Card Driver, the camera don't have network any more and the only way to access the camera is the SD Card.
+ls -ls
+```
 
-### 5. Upgrade to OpenIPC ultimate
+4.6. Run the upgrade command. (It can be needed to run this command two times depending Sofia detection process)
 
-5.1. Format SD Card in FAT32
+```
+/tmp/mmcblock0/ipctool upgrade /tmp/mmcblock0/upgrade.hi3518ev300 --force
 
-5.2. Using 7-Zip open ```openipc.hi3518ev300-nor-ultimate.tgz``` and it contained archive ```openipc.hi3518ev300-nor-ultimate.tar```
+There was no Sofia process detected
+Using '/tmp/mmcblock0/upgrade.hi3518ev300' as upgrade bundle
+        boot    0xb662e010, size: 262144 bytes
+        env     0x63010, size: 65536 bytes
+        kernel  0xb642d010, size: 2097152 bytes
+        rootfs  0xb5d7c010, size: 7012352 bytes
+Analyzing boot
+Analyzing env
+Analyzing kernel
+Analyzing rootfs
+Upgrading boot
+Erase failed, trying XM specific algorithm...ok
+Flashing [wwww]
+Upgrading env
+Flashing [w]
+Upgrading kernel
+Flashing [wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww]
+Upgrading rootfs
+Flashing [wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww]
+set_env_param: total_mem=64M
+System will be restarted...
+```
+4.6. After reboot, switch off the camera and remove the SD Card.
 
-5.3. Copy both ```rootfs.squashfs.hi3518ev300``` and ```uImage.hi3518ev300``` in the root of the SD Card
+### 5. Configuration of OpenIPC
 
-5.4. Create ```autoconfig``` folder on the SD Card. All the content of this folder will be copied by OpenIPC in the EPPROM at the corresponding path.
+5.1. Format SD Card in FAT32.
 
-5.5. Create the path Folder ```etc/network/``` in this ```autoconfig``` folder
+5.2. Copy the content of the [sd-openipc](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-openipc) structure on the SD Card. Content of the SD Card must be at minimum the following:
+```
+sd
+├── autoconfig.sh				 // autoconfig script
+└── autoconfig
+    ├── etc
+    │   ├── init.d
+    │   │   └── S50lightcam		 // start/stop script for lightcam
+    │   ├── lightcam.yml		 // configuration file of ligtcam. MUST be adapted
+    │   └── network
+    │       └── interfaces		 // network and wlan configuration. MUST be adapted
+    └── usr
+        └── sbin
+            └── lightcam		 // lightcam binary. Sources are provided.
+```
 
-5.6. Copy the file [interface](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/interfaces). This file is a copy of the original Interface file with eth0 in manual (```manual eth0```) to improve 
+`autoconfig.sh` is a script that will make the following configuration:
+- set u-boot variable `osmem` to 32M
+- remote serial output of console form u-boot variable `bootargs`
 
-5.7. Copy [autoconfig.sh](https://github.com/dirandad/lightcamera-openipc/blob/main/L620/scripts/autoconfig.sh) script in root of the SD Card.
-this script will:
-   - Upgrade the firmware using ```sysupgrade``` command
-   - set env variable ```osmem``` to 43M as it is in original firmware
-   - disable kernel serial console by modifying env variable ```bootargs```
 
-5.8. Switch Off the Camera
+5.3. Switch Off the Camera and insert the SD Card in Slot
 
-5.9. Insert the SD Card in Slot
-
-5.10. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via ssh. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
-
-5.11. Remove the SD Card and plug it in your computer. You should observe the following file:
-     - autoconfig.txt: The script has been launched
-     - sysupgrade.txt: The script has launched backup command
+5.4. Switch On the Camera and Wait 5 minutes.
 
 At this point it should be possible to connect the Camera url ```http://<ip>:85/```.
+![OpenIPC](/ressources/OpenIPC.png)
 
-### 6. CamLight Integration
+5.5. connect to the webinterface and set `admin` password and confirm. This password is used for `root` in linux.
 
-to be done
+5.6. In the webinterface go to `Device status` page and click `Change timezone`. In the Timezone page, click `Pick up timezone from browser` and click `Save changes`.
 
-
-
-## module integration in OpenIPC
-Work in progress
 
 
 

@@ -1067,8 +1067,8 @@ int main(int argc, char *argv[]) {
 		
 	configfilepath = "lightcam.yml";
 	
-	if(argc == 1)
-		configfilepath == argv[0];
+	if(argc == 2)
+		configfilepath == argv[1];
 	
 	printf("LightCam Module to control Light Extension Card, Status Led and configuration\n");
 	
