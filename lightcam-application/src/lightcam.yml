@@ -1,9 +1,9 @@
 mqtt: 
-    server: "192.168.10.25"
+    server: "192.168.1.1"
     port: 1883
-    username: "ad-do-cami02"
-    password: "qLGpLKBe2WG5DrohRl4f"
-    topic: "ad-do-cami02"
+    username: "username"
+    password: "password"
+    topic: "cameraip"
     detectortempo: 60.0
 serial: 
     port: "/dev/ttyAMA0"
