@@ -45,6 +45,8 @@ void *freqled(void *args){
 	bool val = true;
 	char *gpio = gpiogreen;
 	
+	free(args);
+	
 	while(true)
 	{
 		

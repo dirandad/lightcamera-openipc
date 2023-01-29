@@ -26,8 +26,7 @@ if [ -f "lightcam" ]; then
 
 	echo -n "copiing lightcam..."
 	scp lightcam root@$CAMIP:/root/
-	scp lightcam.yml root@$CAMIP:/root/
-	scp S51lightcam root@$CAMIP:/root/
+	# scp lightcam.yml root@$CAMIP:/root/
 	echo "done"
 
 fi

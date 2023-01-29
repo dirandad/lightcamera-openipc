@@ -774,6 +774,9 @@ void messageArrived(MessageData* md)
 			printf("Topic not used '%s'\n", cleantopic);	
 		}
 	}
+	
+	free(cleantopic);
+	
 }
 
 
@@ -995,6 +998,7 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 				printf("Detector OFFn");
         }
 	}
+
 }
 
 // detection function call as pthread
@@ -1068,7 +1072,7 @@ int main(int argc, char *argv[]) {
 	configfilepath = "lightcam.yml";
 	
 	if(argc == 2)
-		configfilepath == argv[1];
+		configfilepath = argv[1];
 	
 	printf("LightCam Module to control Light Extension Card, Status Led and configuration\n");
 	
