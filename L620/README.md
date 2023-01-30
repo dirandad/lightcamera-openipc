@@ -1111,9 +1111,9 @@ A specific application is developped to manage light extension card and permite 
 
 ## Migration Procedure
 
-Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26).
+Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26) without even open the camera.
 
-This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) method, but as a better option, migration is now based on ```ipctool upgrade``` function that will use a specific bundle that we will create in the next step.
+This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) method, but as a better option, migration is now based on ```ipctool upgrade``` function. This function will use a specific bundle that we will create in the next step.
 
 ### 0. Prerequisites
 
@@ -1147,8 +1147,8 @@ assign letter=<letter>
 2.2. Copy the content of the [sd-steinel](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-steinel) structure on the SD Card. Content of the SD Card must be at minimum the following:
 ```
 sd
-├── ipctool			// OpenIPC multi tool
-└── xm_autorun.sh	// specific script
+├── ipctool         // OpenIPC multi tool
+└── xm_autorun.sh   // specific script
 ```
 
 `xm_autorun.sh` is a bash script that will be executed by Steinel Firmware during startup. If this file is not present on the SD Card, the SD Card is automatically formatted. This script will do the following task :
@@ -1164,9 +1164,9 @@ sd
 ```
 sd
 ├── ipctool
-├── test.txt			// The script has been launched
-├── ipctoolbackup.txt	// The script has launched backup command
-├── firmwaredump.bin	// A backup has beed done!
+├── test.txt            // The script has been launched
+├── ipctoolbackup.txt   // The script has launched backup command
+├── firmwaredump.bin    // A backup has beed done!
 └── xm_autorun.sh
 ```
 
@@ -1250,22 +1250,22 @@ System will be restarted...
 5.2. Copy the content of the [sd-openipc](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-openipc) structure on the SD Card. Content of the SD Card must be at minimum the following:
 ```
 sd
-├── autoconfig.sh				 // autoconfig script
+├── autoconfig.sh                // autoconfig script
 └── autoconfig
     ├── etc
     │   ├── init.d
-    │   │   └── S50lightcam		 // start/stop script for lightcam
-    │   ├── lightcam.yml		 // configuration file of ligtcam. MUST be adapted
+    │   │   └── S50lightcam      // start/stop script for lightcam
+    │   ├── lightcam.yml         // configuration file of ligtcam. MUST be adapted
     │   └── network
-    │       └── interfaces		 // network and wlan configuration. MUST be adapted
+    │       └── interfaces       // network and wlan configuration. MUST be adapted
     └── usr
         └── sbin
-            └── lightcam		 // lightcam binary. Sources are provided.
+            └── lightcam         // lightcam binary. Sources are provided.
 ```
 
 `autoconfig.sh` is a script that will make the following configuration:
 - set u-boot variable `osmem` to 32M
-- remote serial output of console form u-boot variable `bootargs`
+- remove serial output of console from u-boot variable `bootargs`
 
 
 5.3. Switch Off the Camera and insert the SD Card in Slot
@@ -1279,6 +1279,7 @@ At this point it should be possible to connect the Camera url ```http://<ip>:85/
 
 5.6. In the webinterface go to `Device status` page and click `Change timezone`. In the Timezone page, click `Pick up timezone from browser` and click `Save changes`.
 
+The camera should now be ready !
 
 
 

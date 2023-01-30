@@ -782,6 +782,8 @@ void messageArrived(MessageData* md)
 
 int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigned char *readbuf, int readbufsize)
 {
+	// Watchdog : 
+	//			{basetopic}/Watchdog={0-32000}
 	// Up Topic : 
 	//			{basetopic}/Get/Detection={0,1}
 	// Down Topic :
@@ -930,7 +932,7 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 	if(*gpiodetector)
 	{
 		// clock seems to be wrong. 1.0 = 71sec
-		now = (double)clock() / (double)CLOCKS_PER_SEC * 71.0;
+		now = (double)clock() / (double)CLOCKS_PER_SEC * 700.0;
 		
 		stct_detector->begintempo = now;
 
@@ -969,9 +971,14 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 	if(!*gpiodetector && stct_detector->detectionstatus)
 	{
 		// clock seems to be wrong. 1.0 = 71sec
-		now = (double)clock() / (double)CLOCKS_PER_SEC * 71.0;
+		now = (double)clock() / (double)CLOCKS_PER_SEC * 700.0;
 		
 		time_spent = now - stct_detector->begintempo;
+		
+		printf("stct_detector->begintempo %f\n", stct_detector->begintempo);
+		printf("now %f\n", now);
+		printf("time_spent %f\n", time_spent);
+		printf("stct_detector->maxtempo %f\n", stct_detector->maxtempo);
 		
         if (time_spent>=stct_detector->maxtempo)
 		{
@@ -995,7 +1002,7 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 				printf("Detector OFF -> %s=0\n", topic);
 			}
 			else
-				printf("Detector OFFn");
+				printf("Detector OFF\n");
         }
 	}
 
@@ -1120,7 +1127,7 @@ int main(int argc, char *argv[]) {
 		}
 		else
 		{
-			MQTTYield(&c, 100);
+			MQTTYield(&c, 1000);
 			setled(LED_GREEN, LED_ON);
 			
 
