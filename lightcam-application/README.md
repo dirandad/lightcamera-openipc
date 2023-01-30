@@ -68,6 +68,29 @@ Then build the application with
 ```
 $ ./build_lightcam.sh
 ```
+## Usage
+
+### Configuration
+
+### MQTT topics
+
+	// Watchdog : 
+	//			{basetopic}/Watchdog={0-32000}
+	
+	// Get Topics : 
+	//			{basetopic}/Get/Detection={0,1}
+	
+	// Set Topics :
+	//			{basetopic}/Set/Update
+	//			{basetopic}/Set/LightMode={on,detect,config}
+	//			{basetopic}/Set/AlarmMode={on,off}
+	//			{basetopic}/Set/PirSensibility={1-25}
+	//			{basetopic}/Set/LuxSensibility={1-23}
+	//			{basetopic}/Set/HighLightLevel={1-19}
+	//			{basetopic}/Set/OnTemporisation={1,3,10,15}
+	//			{basetopic}/Set/LowLightLevel={1-12}
+	//			{basetopic}/Set/LowLightDuration={-1,2,4,6,10}
+
 
 ## Resources and Reference
 
