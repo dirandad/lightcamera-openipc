@@ -975,11 +975,6 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 		
 		time_spent = now - stct_detector->begintempo;
 		
-		printf("stct_detector->begintempo %f\n", stct_detector->begintempo);
-		printf("now %f\n", now);
-		printf("time_spent %f\n", time_spent);
-		printf("stct_detector->maxtempo %f\n", stct_detector->maxtempo);
-		
         if (time_spent>=stct_detector->maxtempo)
 		{
 			stct_detector->detectionstatus = false;

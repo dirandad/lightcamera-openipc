@@ -72,6 +72,8 @@ $ ./build_lightcam.sh
 
 ### Configuration
 
+
+
 ### MQTT topics
 
 	// Watchdog : 

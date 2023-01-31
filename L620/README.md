@@ -1105,6 +1105,40 @@ If we show u-boot environement variables (fw_printenv from kernel), the followin
 sensor=sc2315e
 ```
 
+20:57:33  <       majestic> [     hal] hisi_free_mem_ex@755          Free MMZ mem finally: 9536KB
+
+## Memory fine tunning
+
+L620 has 64MB RAM onboard. This memory is used for OS but also for MMZ (media memory zone). This memory area is used for image calculation.
+In OpenIPC, the media application `majestic` control VB (Video Buffer) that use this memory.
+
+The variable `osmem` in u-boot environment set the memory limit used by linux. Then the rest is aviable for MMZ.
+In original firmware `osmem=43MB`, in OpenIPC after fresh installation `osmem=32MB`.
+
+We then need to check the good parameter for `osmem`.
+
+It is possible to check MMZ usage with `majestic` output.
+
+Connecting in ssh kill and start majestic in command line.
+
+```
+kill `pidof majestic`
+
+majestic
+```
+
+Check the output of majestic and find the line `Free MMZ mem finally: <mem>`.
+With `osmem=32MB` the output give `Free MMZ mem finally: 9984KB`. This meens that we can increase osmem until 9MB without affecting MMZ.
+
+By settings `osmem=38MB` we have a good ajusted memory parameter.
+
+Command to change osmem from kernel:
+
+```
+fw_setenv osmem 38MB
+```
+
+
 ## module development for light extension card
 
 A specific application is developped to manage light extension card and permite remote control. See [lightcam-application](https://github.com/dirandad/lightcamera-openipc/tree/main/lightcam-application)
@@ -1264,7 +1298,7 @@ sd
 ```
 
 `autoconfig.sh` is a script that will make the following configuration:
-- set u-boot variable `osmem` to 32M
+- set u-boot variable `osmem` to 38M
 - remove serial output of console from u-boot variable `bootargs`
 
 
