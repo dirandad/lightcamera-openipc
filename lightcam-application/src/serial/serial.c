@@ -77,7 +77,6 @@ const unsigned char LOWLIGHTDURATION_04H = 0x6B;
 const unsigned char LOWLIGHTDURATION_06H = 0x70;
 const unsigned char LOWLIGHTDURATION_10H = 0x7A;
 
-
 // Port handler
 int port_fd = -1;
 
@@ -339,7 +338,7 @@ int light_highlightlevel(int highlightlevel)
 
 }
 
-// send light mode on command
+// send light on temporisation
 
 int light_ontemporisation(unsigned char ontemporisation)
 {
@@ -365,7 +364,7 @@ int light_lowlightlevel(int lowlightlevel)
 
 }
 
-// send light mode on command
+// send low light duration
 
 int light_lowlightduration(unsigned char lowlightduration)
 {
@@ -374,3 +373,19 @@ int light_lowlightduration(unsigned char lowlightduration)
 	
 }
 
+// set config
+
+int light_setconfig (struct struct_light_config config)
+{
+	int retval = 0;
+	retval = retval + light_update();
+	retval = retval + light_lightmode(config.lightmode); 				// send light mode on command
+	retval = retval + light_alarmmode(config.alarmmode); 				// send Alarm mode on command
+	retval = retval + light_pirsensibility(config.pirsensibility);	// set PIR sensibility
+	retval = retval + light_luxsensibility(config.luxsensibility);	// set Lux sensibility
+	retval = retval + light_highlightlevel(config.highlightlevel);	// set highlight level
+	retval = retval + light_ontemporisation(config.ontemporisation);	// send light mode on command
+	retval = retval + light_lowlightlevel(config.lowlightlevel);		// set lowlight level
+	retval = retval + light_lowlightduration(config.lowlightduration);// send light mode on command
+	return retval;
+}

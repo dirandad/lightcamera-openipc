@@ -27,7 +27,6 @@ Contributors:
 
 #include "mqtt/MQTTClient.h"
 
-pthread_t gpiothread_id;
 
 /* YAML File structure
 mqtt:
@@ -71,6 +70,10 @@ Then Start mqtt Client :
  * @brief The function will be called whenever a PUBLISH message is received.
  */
 
+pthread_t gpiothread_id;
+
+const char lightcamconfigfile[18] = "/var/lib/lightcam";
+
 char hostname[256];
 char mqtt_subscribed_topic[1024];
 char mqtt_watchdog_topic[1024];
@@ -91,6 +94,8 @@ struct struct_detector
 
 struct struct_detector strct_detector;
 
+//struct struct_light_config light_config = {LIGHTMODE_DETECT, ALARMMODE_ON, 25, 23, 19, ONTEMPORISATION_01MIN, 12, LOWLIGHTDURATION_04H};
+struct struct_light_config light_config = {0x62, 0x62, 25, 23, 19, 0x62, 12, 0x6B};
 	
 struct yaml_mqtt
 {
@@ -413,6 +418,42 @@ void cfinish(int sig)
 	toStop = 1;
 }
 
+
+int write_lightcamconfig()
+{
+
+	FILE *of;
+	of= fopen (lightcamconfigfile, "w");
+	if (of == NULL) {
+		fprintf(stderr, "Error to open the file\n");
+		return -1;
+	}
+	fwrite (&light_config, sizeof(struct struct_light_config), 1, of);
+	if(fwrite == 0)
+		printf("Error writing file !\n");
+	fclose (of);
+	return 0;
+}
+
+int read_lightcamconfig()
+{
+	FILE *inf;
+	struct struct_light_config inp;
+	inf = fopen (lightcamconfigfile, "r");
+	if (inf == NULL) {
+		fprintf(stderr, "Error to open the file\n");
+		return -1;
+	}
+	if(fread(&inp, sizeof(struct struct_light_config), 1, inf))
+	{
+		light_config = inp;
+	}
+	fclose (inf);
+
+	return 0;
+}
+
+
 void ActiveGPIO(char *strGpio, uint32_t addr, uint32_t value)
 {
 	
@@ -637,35 +678,37 @@ void messageArrived(MessageData* md)
 		{
 			if(strcmp(payload, "on")==0)
 			{
-				light_lightmode(LIGHTMODE_ON);
+				light_config.lightmode = LIGHTMODE_ON;
 			}
 			else if(strcmp(payload, "detect")==0)
 			{
-				light_lightmode(LIGHTMODE_DETECT);
+				light_config.lightmode = LIGHTMODE_DETECT;
 			}
 			else if(strcmp(payload, "config")==0)
 			{
-				light_lightmode(LIGHTMODE_CONFIG);
+				light_config.lightmode = LIGHTMODE_CONFIG;
 			}
 			else
 			{
 				printf("%s is not a valid payload for LightMode\n", payload);
 			}
+			light_lightmode(light_config.lightmode);
 		}
 		else if(strcmp(cleantopic, "/Set/AlarmMode")==0)
 		{
 			if(strcmp(payload, "on")==0)
 			{
-				light_alarmmode(ALARMMODE_ON);
+				light_config.alarmmode = ALARMMODE_ON;
 			}
 			else if(strcmp(payload, "off")==0)
 			{
-				light_alarmmode(ALARMMODE_OFF);
+				light_config.alarmmode = ALARMMODE_OFF;
 			}
 			else
 			{
 				printf("%s is not a valid payload for AlarmMode\n", payload);
 			}
+			light_alarmmode(light_config.alarmmode);
 		}
 		else if(strcmp(cleantopic, "/Set/PirSensibility")==0)
 		{
@@ -673,12 +716,13 @@ void messageArrived(MessageData* md)
 			pirsensibility = atoi(payload);
 			if(pirsensibility >= 1 && pirsensibility <= 25)
 			{
-				light_pirsensibility(pirsensibility);
+				light_config.pirsensibility = pirsensibility;
 			}
 			else
 			{
 				printf("%s is not a valid payload for PirSensibility\n", payload);
 			}
+			light_pirsensibility(light_config.pirsensibility);
 		}	
 		else if(strcmp(cleantopic, "/Set/LuxSensibility")==0)
 		{
@@ -686,12 +730,13 @@ void messageArrived(MessageData* md)
 			luxsensibility = atoi(payload);
 			if(luxsensibility >= 1 && luxsensibility <= 23)
 			{
-				light_luxsensibility(luxsensibility);
+				light_config.luxsensibility = luxsensibility;
 			}
 			else
 			{
 				printf("%s is not a valid payload for LuxSensibility\n", payload);
 			}
+			light_luxsensibility(light_config.luxsensibility);
 		}		
 		else if(strcmp(cleantopic, "/Set/HighLightLevel")==0)
 		{
@@ -699,35 +744,37 @@ void messageArrived(MessageData* md)
 			highlightlevel = atoi(payload);
 			if(highlightlevel >= 1 && highlightlevel <= 19)
 			{
-				light_highlightlevel(highlightlevel);
+				light_config.highlightlevel = highlightlevel;
 			}
 			else
 			{
 				printf("%s is not a valid payload for HighLightLevel\n", payload);
 			}
+			light_highlightlevel(highlightlevel);
 		}		
 		else if(strcmp(cleantopic, "/Set/OnTemporisation")==0)
 		{
 			if(strcmp(payload, "1")==0)
 			{
-				light_ontemporisation(ONTEMPORISATION_01MIN);
+				light_config.ontemporisation = ONTEMPORISATION_01MIN;
 			}
 			else if(strcmp(payload, "3")==0)
 			{
-				light_ontemporisation(ONTEMPORISATION_03MIN);
+				light_config.ontemporisation = ONTEMPORISATION_03MIN;
 			}
 			else if(strcmp(payload, "10")==0)
 			{
-				light_ontemporisation(ONTEMPORISATION_10MIN);
+				light_config.ontemporisation = ONTEMPORISATION_10MIN;
 			}
 			else if(strcmp(payload, "15")==0)
 			{
-				light_ontemporisation(ONTEMPORISATION_15MIN);
+				light_config.ontemporisation = ONTEMPORISATION_15MIN;
 			}
 			else
 			{
 				printf("%s is not a valid payload for OnTemporisation\n", payload);
 			}
+			light_ontemporisation(light_config.ontemporisation);
 		}		
 		else if(strcmp(cleantopic, "/Set/LowLightLevel")==0)
 		{
@@ -735,44 +782,51 @@ void messageArrived(MessageData* md)
 			lowlightlevel = atoi(payload);
 			if(lowlightlevel >= 1 && lowlightlevel <= 12)
 			{
-				light_lowlightlevel(lowlightlevel);
+				light_config.lowlightlevel = lowlightlevel;
 			}
 			else
 			{
 				printf("%s is not a valid payload for LowLightLevel\n", payload);
 			}
+			light_lowlightlevel(lowlightlevel);
 		}		
 		else if(strcmp(cleantopic, "/Set/LowLightDuration")==0)
 		{
 			if(strcmp(payload, "-1")==0)
 			{
-				light_lowlightduration(LOWLIGHTDURATION_ALLNIGHT);
+				light_config.lowlightduration = LOWLIGHTDURATION_ALLNIGHT;
 			}
 			else if(strcmp(payload, "2")==0)
 			{
-				light_lowlightduration(LOWLIGHTDURATION_02H);
+				light_config.lowlightduration = LOWLIGHTDURATION_02H;
 			}
 			else if(strcmp(payload, "4")==0)
 			{
-				light_lowlightduration(LOWLIGHTDURATION_04H);
+				light_config.lowlightduration = LOWLIGHTDURATION_04H;
 			}
 			else if(strcmp(payload, "6")==0)
 			{
-				light_lowlightduration(LOWLIGHTDURATION_06H);
+				light_config.lowlightduration = LOWLIGHTDURATION_06H;
 			}
 			else if(strcmp(payload, "10")==0)
 			{
-				light_lowlightduration(LOWLIGHTDURATION_10H);
+				light_config.lowlightduration = LOWLIGHTDURATION_10H;
 			}
 			else
 			{
 				printf("%s is not a valid payload for LowLightDuration\n", payload);
 			}
+			
+			light_lowlightduration(light_config.lowlightduration);
 		}
 		else
 		{
 			printf("Topic not used '%s'\n", cleantopic);	
 		}
+		
+		
+		write_lightcamconfig();
+		
 	}
 	
 	free(cleantopic);
@@ -1068,6 +1122,25 @@ int main(int argc, char *argv[]) {
    
     c.isconnected = 0;
 	n.my_socket = -1;
+	
+	printf("LightCam Module to control Light Extension Card, Status Led and configuration\n");
+	
+	// read config;
+	printf("Loading config file %s\n", lightcamconfigfile);
+	read_lightcamconfig();
+	
+	printf("===================lightcam configuration=======================\n");
+	printf("lightmode: %d\n", light_config.lightmode);
+	printf("alarmmode: %d\n", light_config.alarmmode);
+	printf("pirsensibility: %d\n", light_config.pirsensibility);
+	printf("luxsensibility: %d\n", light_config.luxsensibility);
+	printf("highlightlevel: %d\n", light_config.highlightlevel);
+	printf("ontemporisation: %d\n", light_config.ontemporisation);
+	printf("lowlightlevel: %d\n", light_config.lowlightlevel);
+	printf("lowlightduration: %d\n", light_config.lowlightduration);
+	printf("================================================================\n");
+
+	
 	// Get Hostname
     rethostname = gethostname(hostname, sizeof(hostname)); //find the host name
 		
@@ -1076,11 +1149,13 @@ int main(int argc, char *argv[]) {
 	if(argc == 2)
 		configfilepath = argv[1];
 	
-	printf("LightCam Module to control Light Extension Card, Status Led and configuration\n");
+	
 	
 	GetYamlConfig(configfilepath);
 
 	inithardware();	
+	
+	light_setconfig(light_config);
 	
 	initmqtt(&n, &c, buf, 100, readbuf, 100);
 

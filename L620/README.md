@@ -1115,11 +1115,9 @@ In OpenIPC, the media application `majestic` control VB (Video Buffer) that use 
 The variable `osmem` in u-boot environment set the memory limit used by linux. Then the rest is aviable for MMZ.
 In original firmware `osmem=43MB`, in OpenIPC after fresh installation `osmem=32MB`.
 
-We then need to check the good parameter for `osmem`.
+We then need to check the good parameter for `osmem`. MMZ size need can be affected by `majestic` parameters.
 
-It is possible to check MMZ usage with `majestic` output.
-
-Connecting in ssh kill and start majestic in command line.
+It is possible to check MMZ usage with `majestic` output. Connecting in ssh kill and start majestic in command line.
 
 ```
 kill `pidof majestic`
@@ -1128,14 +1126,14 @@ majestic
 ```
 
 Check the output of majestic and find the line `Free MMZ mem finally: <mem>`.
-With `osmem=32MB` the output give `Free MMZ mem finally: 9984KB`. This meens that we can increase osmem until 9MB without affecting MMZ.
+With `osmem=32MB` and default `majestic` parameters, the output give `Free MMZ mem finally: 9984KB`. This meens that we can increase osmem until 9MB without affecting MMZ usage.
 
-By settings `osmem=38MB` we have a good ajusted memory parameter.
+By settings `osmem=34MB` we have a good ajusted memory parameter.
 
 Command to change osmem from kernel:
 
 ```
-fw_setenv osmem 38MB
+fw_setenv osmem 34MB
 ```
 
 
@@ -1298,7 +1296,7 @@ sd
 ```
 
 `autoconfig.sh` is a script that will make the following configuration:
-- set u-boot variable `osmem` to 38M
+- set u-boot variable `osmem` to 34MB
 - remove serial output of console from u-boot variable `bootargs`
 
 

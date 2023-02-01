@@ -38,6 +38,17 @@ extern const unsigned char LOWLIGHTDURATION_06H;
 extern const unsigned char LOWLIGHTDURATION_10H;
 
 
+struct struct_light_config {
+	unsigned char lightmode;
+	unsigned char alarmmode;
+	int pirsensibility;
+	int luxsensibility;
+	int highlightlevel;
+	unsigned char ontemporisation;
+	int lowlightlevel;
+	unsigned char lowlightduration;
+};
+
 int set_interface_attributes (int fd, int speed, int parity);
 
 int set_blocking (int fd, int should_block);
@@ -64,5 +75,6 @@ int light_lowlightlevel(int lowlightlevel);
 
 int light_lowlightduration(unsigned char lowlightduration);
 
+int light_setconfig (struct struct_light_config config);
 
 #endif
