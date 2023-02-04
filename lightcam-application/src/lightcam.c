@@ -948,7 +948,6 @@ int MQTTWatchdog(MQTTClient *c)
 		sprintf(watchdogstr, "%d", watchdog);
 
 		memset(&pubmsg, '\0', sizeof(pubmsg));
-		//pubmsg.payload = (void*)"test";
 		pubmsg.payload = (void*)watchdogstr;
 		pubmsg.payloadlen = strlen((char*)pubmsg.payload);
 		pubmsg.qos = QOS2;
@@ -971,6 +970,14 @@ int MQTTWatchdog(MQTTClient *c)
 	return watchdogcnt;
 }
 
+double current_timestamp() {
+	
+	time_t rawtime;
+
+	time(&rawtime);
+
+	return (double)rawtime;
+}
 
 
 int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct_detector)
@@ -981,14 +988,16 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 	
     double time_spent;
     double now;
-
-
+	
 	if(*gpiodetector)
 	{
-		// clock seems to be wrong. 1.0 = 71sec
-		now = (double)clock() / (double)CLOCKS_PER_SEC * 700.0;
+		// clock seems to be wrong. 1.0 = 710sec
+		// now = (double)clock() / (double)CLOCKS_PER_SEC * 710.0;
+		now = current_timestamp();
 		
 		stct_detector->begintempo = now;
+		
+		// printf("stct_detector->begintempo %f\n", stct_detector->begintempo);
 
 		if(!stct_detector->detectionstatus)
 		{
@@ -1025,10 +1034,14 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 	if(!*gpiodetector && stct_detector->detectionstatus)
 	{
 		// clock seems to be wrong. 1.0 = 71sec
-		now = (double)clock() / (double)CLOCKS_PER_SEC * 700.0;
+		// now = (double)clock() / (double)CLOCKS_PER_SEC * 710.0;
+		now = current_timestamp();
 		
 		time_spent = now - stct_detector->begintempo;
 		
+		// printf("time_spent %f\n", time_spent);
+		// printf("stct_detector->maxtempo %f\n", stct_detector->maxtempo);
+
         if (time_spent>=stct_detector->maxtempo)
 		{
 			stct_detector->detectionstatus = false;
@@ -1140,7 +1153,7 @@ int main(int argc, char *argv[]) {
 	printf("lowlightduration: %d\n", light_config.lowlightduration);
 	printf("================================================================\n");
 
-	
+
 	// Get Hostname
     rethostname = gethostname(hostname, sizeof(hostname)); //find the host name
 		
@@ -1149,7 +1162,7 @@ int main(int argc, char *argv[]) {
 	if(argc == 2)
 		configfilepath = argv[1];
 	
-	
+
 	
 	GetYamlConfig(configfilepath);
 
@@ -1159,6 +1172,9 @@ int main(int argc, char *argv[]) {
 	
 	initmqtt(&n, &c, buf, 100, readbuf, 100);
 
+	
+	// Initialisation of detector
+	strct_detector.maxtempo = config.mqtt.detectortempo;
 	
 	// LED_COLOR { LED_NONE, LED_RED, LED_GREEN };
 	// LED_MODE { LED_OFF, LED_ON, LED_02HZ, LED_05HZ, LED_1HZ };
@@ -1170,7 +1186,9 @@ int main(int argc, char *argv[]) {
 		
 	int rc = 0;	
 	int cnt = 0;
+	int cntwdg = 0;
 	
+
 
 	//*detection(NULL);
 	
@@ -1182,7 +1200,12 @@ int main(int argc, char *argv[]) {
 	
 	while (!toStop)
 	{
-		cnt = MQTTWatchdog(&c);
+		cntwdg = cntwdg + 1;
+		if(cntwdg>=5)
+		{			
+			cnt = MQTTWatchdog(&c);
+			cntwdg = 0;
+		}
 		if(cnt > 0)
 		{
 			if(cnt < 5)
@@ -1200,8 +1223,6 @@ int main(int argc, char *argv[]) {
 			MQTTYield(&c, 1000);
 			setled(LED_GREEN, LED_ON);
 			
-
-			strct_detector.maxtempo = config.mqtt.detectortempo;
 			MQTTdetector(&c, &gpiodetector, &strct_detector);
 			
 		}
