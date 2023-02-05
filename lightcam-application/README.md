@@ -68,31 +68,86 @@ Then build the application with
 ```
 $ ./build_lightcam.sh
 ```
+
+## Installation
+
+lightcam can be installed on a fresh OpenIPC camera by copiing the following files:
+- `lightcam` 		--> `/usr/sbin/`
+- `S50lightcam`		--> `/etc/init.d/`
+- `lightcam.yml`	--> `/etc/`
+
 ## Usage
+
+To start lightcam manually enter the following command (adapt configuration file path if needed):
+
+```
+./lightcam /etc/lightcam.yml
+```
+
+To manage lightcam using `init.d`:
+
+```
+/etc/init.d/S50lightcam start
+/etc/init.d/S50lightcam stop
+/etc/init.d/S50lightcam restart
+```
 
 ### Configuration
 
+Basic configuration of lightcam is done using a YAML file and contain:
+- MQTT server configuration including detector temporisation
+- serial configuration
 
+```
+mqtt: 
+    server: "192.168.1.1"
+    port: 1883
+    username: "username"
+    password: "password"
+    topic: "cameraip"
+    detectortempo: 60.0
+serial: 
+    port: "/dev/ttyAMA0"
+    baudrate: 9600
+```
 
 ### MQTT topics
 
-	// Watchdog : 
-	//			{basetopic}/Watchdog={0-32000}
-	
-	// Get Topics : 
-	//			{basetopic}/Get/Detection={0,1}
-	
-	// Set Topics :
-	//			{basetopic}/Set/Update
-	//			{basetopic}/Set/LightMode={on,detect,config}
-	//			{basetopic}/Set/AlarmMode={on,off}
-	//			{basetopic}/Set/PirSensibility={1-25}
-	//			{basetopic}/Set/LuxSensibility={1-23}
-	//			{basetopic}/Set/HighLightLevel={1-19}
-	//			{basetopic}/Set/OnTemporisation={1,3,10,15}
-	//			{basetopic}/Set/LowLightLevel={1-12}
-	//			{basetopic}/Set/LowLightDuration={-1,2,4,6,10}
+in this section, `{basetopic}` is configured in YAML configuration file at `mqtt.topic`.
 
+lightcam will subscribe on the following MQTT topics:
+
+```
+{basetopic}/Set/Update
+{basetopic}/Set/LightMode={on,detect,config}
+{basetopic}/Set/AlarmMode={on,off}
+{basetopic}/Set/PirSensibility={1-25}
+{basetopic}/Set/LuxSensibility={1-23}
+{basetopic}/Set/HighLightLevel={1-19}
+{basetopic}/Set/OnTemporisation={1,3,10,15}
+{basetopic}/Set/LowLightLevel={1-12}
+{basetopic}/Set/LowLightDuration={-1,2,4,6,10}
+```
+
+lightcam will publish on the following MQTT topics:
+
+```
+// updated each 5 sec
+{basetopic}/Watchdog={0-32000}
+
+// set to 1 when GPIO 0_3 activated, reset to 0 at end of temporisation mqtt.detectortempo after last activation of GPIO 0_3	
+{basetopic}/Get/Detection={0,1}
+
+(( updated each 60 sec or after reception of new message on a subscribed topic.
+{basetopic}/Get/LightMode={on,detect,config}
+{basetopic}/Get/AlarmMode={on,off}
+{basetopic}/Get/PirSensibility={1-25}
+{basetopic}/Get/LuxSensibility={1-23}
+{basetopic}/Get/HighLightLevel={1-19}
+{basetopic}/Get/OnTemporisation={1,3,10,15}
+{basetopic}/Get/LowLightLevel={1-12}
+{basetopic}/Get/LowLightDuration={-1,2,4,6,10}
+```
 
 ## Resources and Reference
 
