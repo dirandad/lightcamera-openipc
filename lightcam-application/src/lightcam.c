@@ -85,6 +85,8 @@ unsigned char readbuf[100];
 bool gpiodetector = false;
 bool detectionstatus = false;
 
+bool requestpublish = true;
+
 struct struct_detector
 {
 	bool detectionstatus;
@@ -453,6 +455,101 @@ int read_lightcamconfig()
 	return 0;
 }
 
+
+int MQTTCamPublish(MQTTClient *c, char *topic, char *strvalue)
+{
+
+	
+	if(c->isconnected)
+	{
+		char fulltopic[1024];
+		MQTTMessage pubmsg;
+		
+		memset(&pubmsg, '\0', sizeof(pubmsg));
+		pubmsg.payload = (void*)strvalue;
+		pubmsg.payloadlen = strlen((char*)pubmsg.payload);
+		pubmsg.qos = QOS2;
+		pubmsg.retained = 0;
+		pubmsg.dup = 0;
+
+		strcpy(fulltopic, config.mqtt.topic);
+		strcat(fulltopic,topic);
+		
+		printf("MQTT-->%s=%s\n", fulltopic, strvalue);
+		
+		return MQTTPublish(c, fulltopic, &pubmsg);
+	}
+	else
+		return 0;
+}
+
+int publish_lightcamconfig(MQTTClient *c)
+{
+	char *strvalue;
+	char strarr[2];	
+	requestpublish = false;
+		
+	// publish light_config.lightmode on /Get/LightMode
+	strvalue = "";
+	if(light_config.lightmode == LIGHTMODE_ON)
+		strvalue = "on";
+	else if(light_config.lightmode == LIGHTMODE_DETECT)
+		strvalue = "detect";
+	else if(light_config.lightmode == LIGHTMODE_CONFIG)
+		strvalue = "config";
+	MQTTCamPublish(c, "/Get/LightMode", strvalue);
+	
+	// publish light_config.alarmmode on /Get/AlarmMode
+	strvalue = "";
+	if(light_config.alarmmode == ALARMMODE_ON)
+		strvalue = "on";
+	else if(light_config.alarmmode == ALARMMODE_OFF)
+		strvalue = "off";
+	MQTTCamPublish(c, "/Get/AlarmMode", strvalue);
+	
+	// publish light_config.pirsensibility on /Get/PirSensibility
+	sprintf(strarr, "%d", light_config.pirsensibility);
+	MQTTCamPublish(c, "/Get/PirSensibility", strarr);
+	
+	// publish light_config.luxsensibility on /Get/LuxSensibility
+	sprintf(strarr, "%d", light_config.luxsensibility);
+	MQTTCamPublish(c, "/Get/LuxSensibility", strarr);
+	
+	// publish light_config.highlightlevel on /Get/HighLightLevel
+	sprintf(strarr, "%d", light_config.highlightlevel);
+	MQTTCamPublish(c, "/Get/HighLightLevel", strarr);
+	
+	// publish light_config.ontemporisation on /Get/OnTemporisation
+	strvalue = "";
+	if(light_config.ontemporisation == ONTEMPORISATION_01MIN)
+		strvalue = "1";
+	else if(light_config.ontemporisation == ONTEMPORISATION_03MIN)
+		strvalue = "3";
+	else if(light_config.ontemporisation == ONTEMPORISATION_10MIN)
+		strvalue = "10";
+	else if(light_config.ontemporisation == ONTEMPORISATION_15MIN)
+		strvalue = "15";
+	MQTTCamPublish(c, "/Get/OnTemporisation", strvalue);
+	
+	// publish light_config.lowlightlevel on /Get/LowLightLevel
+	sprintf(strarr, "%d", light_config.lowlightlevel);
+	MQTTCamPublish(c, "/Get/LowLightLevel", strarr);
+	
+	// publish light_config.lowlightduration on /Get/LowLightDuration
+	strvalue = "";
+	if(light_config.lowlightduration == LOWLIGHTDURATION_ALLNIGHT)
+		strvalue = "-1";
+	else if(light_config.lowlightduration == LOWLIGHTDURATION_02H)
+		strvalue = "2";
+	else if(light_config.lowlightduration == LOWLIGHTDURATION_04H)
+		strvalue = "4";
+	else if(light_config.lowlightduration == LOWLIGHTDURATION_06H)
+		strvalue = "6";
+	else if(light_config.lowlightduration == LOWLIGHTDURATION_10H)
+		strvalue = "10";
+	MQTTCamPublish(c, "/Get/LowLightDuration", strvalue);
+
+}
 
 void ActiveGPIO(char *strGpio, uint32_t addr, uint32_t value)
 {
@@ -827,6 +924,8 @@ void messageArrived(MessageData* md)
 		
 		write_lightcamconfig();
 		
+		requestpublish = true;
+		
 	}
 	
 	free(cleantopic);
@@ -840,6 +939,14 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 	//			{basetopic}/Watchdog={0-32000}
 	// Up Topic : 
 	//			{basetopic}/Get/Detection={0,1}
+	//			{basetopic}/Get/LightMode={on,detect,config}
+	//			{basetopic}/Get/AlarmMode={on,off}
+	//			{basetopic}/Get/PirSensibility={1-25}
+	//			{basetopic}/Get/LuxSensibility={1-23}
+	//			{basetopic}/Get/HighLightLevel={1-19}
+	//			{basetopic}/Get/OnTemporisation={1,3,10,15}
+	//			{basetopic}/Get/LowLightLevel={1-12}
+	//			{basetopic}/Get/LowLightDuration={-1,2,4,6,10}
 	// Down Topic :
 	//			{basetopic}/Set/Update
 	//			{basetopic}/Set/LightMode={on,detect,config}
@@ -940,28 +1047,9 @@ int MQTTWatchdog(MQTTClient *c)
 	MQTTMessage pubmsg;
 	
 	char watchdogstr[6] = "0";
+	sprintf(watchdogstr, "%d", watchdog);
 	
-	if(c->isconnected)
-	{
-	
-		//itoa(watchdog,watchdogstr,10);
-		sprintf(watchdogstr, "%d", watchdog);
-
-		memset(&pubmsg, '\0', sizeof(pubmsg));
-		pubmsg.payload = (void*)watchdogstr;
-		pubmsg.payloadlen = strlen((char*)pubmsg.payload);
-		pubmsg.qos = QOS2;
-		pubmsg.retained = 0;
-		pubmsg.dup = 0;
-		
-		char topic[1024];
-		
-		strcpy(topic, config.mqtt.topic);
-		
-		strcat(topic,"/Watchdog");
-		
-		rc = MQTTPublish(c, topic, &pubmsg);
-	}
+	MQTTCamPublish(c, "/Watchdog", watchdogstr);
 	
 	if(watchdogcnt<5)
 		watchdogcnt++;
@@ -1004,26 +1092,9 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 			
 			stct_detector->detectionstatus = true;
 			
-				
-			if(c->isconnected)
-			{
-				memset(&pubmsg, '\0', sizeof(pubmsg));
-				
-				pubmsg.payload = (void*)"1";
-				pubmsg.payloadlen = strlen((char*)pubmsg.payload);
-				pubmsg.qos = QOS2;
-				pubmsg.retained = 0;
-				pubmsg.dup = 0;
-				
-				strcpy(topic, config.mqtt.topic);
-				
-				strcat(topic,"/Get/Detection");
-				
-				rc = MQTTPublish(c, topic, &pubmsg);
-				printf("Detector ON -> %s=1\n", topic);
-			}
-			else
-				printf("Detector ON\n");
+			MQTTCamPublish(c, "/Get/Detection", "1");
+			
+			printf("Detector ON\n");
 		}
 		
 		*gpiodetector = false;
@@ -1045,26 +1116,10 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
         if (time_spent>=stct_detector->maxtempo)
 		{
 			stct_detector->detectionstatus = false;
+			
+			MQTTCamPublish(c, "/Get/Detection", "0");
 
-			if(c->isconnected)
-			{
-				memset(&pubmsg, '\0', sizeof(pubmsg));
-				
-				pubmsg.payload = (void*)"0";
-				pubmsg.payloadlen = strlen((char*)pubmsg.payload);
-				pubmsg.qos = QOS2;
-				pubmsg.retained = 0;
-				pubmsg.dup = 0;
-				
-				strcpy(topic, config.mqtt.topic);
-				
-				strcat(topic,"/Get/Detection");
-				
-				rc = MQTTPublish(c, topic, &pubmsg);
-				printf("Detector OFF -> %s=0\n", topic);
-			}
-			else
-				printf("Detector OFF\n");
+			printf("Detector OFF\n");
         }
 	}
 
@@ -1187,6 +1242,7 @@ int main(int argc, char *argv[]) {
 	int rc = 0;	
 	int cnt = 0;
 	int cntwdg = 0;
+	int cntpublish = 0;
 	
 
 
@@ -1206,6 +1262,13 @@ int main(int argc, char *argv[]) {
 			cnt = MQTTWatchdog(&c);
 			cntwdg = 0;
 		}
+
+		cntpublish = cntpublish + 1;
+		if(cntpublish>=60)
+		{			
+			requestpublish = true;
+			cntpublish = 0;
+		}
 		if(cnt > 0)
 		{
 			if(cnt < 5)
@@ -1224,6 +1287,9 @@ int main(int argc, char *argv[]) {
 			setled(LED_GREEN, LED_ON);
 			
 			MQTTdetector(&c, &gpiodetector, &strct_detector);
+			
+			if(requestpublish)
+				publish_lightcamconfig(&c);
 			
 		}
 
