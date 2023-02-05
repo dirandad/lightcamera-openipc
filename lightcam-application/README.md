@@ -155,6 +155,7 @@ lightcam will publish on the following MQTT topics:
 
 Based on MQTT topics, here is an example of integration in Home Assistant.
 As prerequiste, you need to add the MQTT integration to Home Assistant.
+
 ![HA](/lightcam-application/ha-integration.png)
 
 extract of `configuration.yaml` file. Replace `camera` with your specific name.
