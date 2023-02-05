@@ -1206,6 +1206,8 @@ At this step, it is highly recommanded to extract this firmwarefile using ```bin
 
 ### 3. Create a Firmware bundle for ipctool upgrade
 
+Do not start this section if you don't acheive to backup original firmware !
+
 3.1. Clone GitHub ipctool repository and explore it
 ```
 git clone https://github.com/OpenIPC/ipctool
