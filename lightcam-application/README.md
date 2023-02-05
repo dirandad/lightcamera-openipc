@@ -149,6 +149,98 @@ lightcam will publish on the following MQTT topics:
 {basetopic}/Get/LowLightDuration={-1,2,4,6,10}
 ```
 
+## Integration
+
+### Home Assitant Integration
+
+Based on MQTT topics, here is an example of integration in Home Assistant.
+As prerequiste, you need to add the MQTT integration to Home Assistant.
+![HA](/lightcam-application/ha-integration.png)
+
+extract of `configuration.yaml` file. Replace `camera` with your specific name.
+```
+mqtt:
+    sensor:  
+      - unique_id: camera_watchdog
+        name: "camera_watchdog"
+        state_topic: "camera/Watchdog"
+        expire_after: 10
+    binary_sensor:
+      - unique_id: camera_detection
+        name: "camera_detection"
+        state_topic: "camera/Get/Detection"
+        payload_on: "1"
+        payload_off: "0"
+    light:
+      - unique_id: camera_light
+        name: "camera_light"
+        schema: template
+        command_topic: "camera/Set/LightMode"
+        command_on_template: "on"
+        command_off_template: "detect"
+        state_topic: "camera/Get/LightMode"
+        state_template: "{% if value=='on' %}on{% else %}off{% endif %}"
+    button:
+      - unique_id: camera_update
+        name: "camera_update"
+        command_topic: "camera/Set/Update"
+    switch:
+      - unique_id: camera_alarmmode
+        name: "camera_alarmmode"
+        command_topic: "camera/Set/AlarmMode"
+        state_topic: "camera/Get/AlarmMode"
+        payload_on: "on"
+        payload_off: "off"
+    select:
+      - unique_id: camera_ontemporisation
+        name: "camera_ontemporisation"
+        command_topic: "camera/Set/OnTemporisation"
+        options:
+          - "1"
+          - "3"
+          - "10"
+          - "15"
+      - unique_id: camera_lowlightduration
+        name: "camera_lowlightduration"
+        command_topic: "camera/Set/LowLightDuration"
+        options:
+          - "-1"
+          - "2"
+          - "4"
+          - "6"
+          - "10"
+    number:
+      - unique_id: camera_pirsensibility
+        name: "camera_pirsensibility"
+        command_topic: "camera/Set/PirSensibility"
+        state_topic: "camera/Get/PirSensibility"
+        min: 1
+        max: 25
+        step: 1
+      - unique_id: camera_luxsensibility
+        name: "camera_luxsensibility"
+        command_topic: "camera/Set/LuxSensibility"
+        state_topic: "camera/Get/LuxSensibility"
+        min: 1
+        max: 23
+        step: 1
+      - unique_id: camera_highlightlevel
+        name: "camera_highlightlevel"
+        command_topic: "camera/Set/HighLightLevel"
+        state_topic: "camera/Get/HighLightLevel"
+        min: 1
+        max: 19
+        step: 1
+      - unique_id: camera_lowlightlevel
+        name: "camera_lowlightlevel"
+        command_topic: "camera/Set/LowLightLevel"
+        state_topic: "camera/Get/LowLightLevel"
+        min: 1
+        max: 12
+        step: 1
+
+```
+
 ## Resources and Reference
 
 LighCam use the following source :
