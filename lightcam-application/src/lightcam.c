@@ -1272,7 +1272,10 @@ int main(int argc, char *argv[]) {
 		if(cnt > 0)
 		{
 			if(cnt < 5)
-				setled(LED_RED, LED_02HZ);
+			{
+				// TO DO : Create memory leak... need to be investiguate
+				//setled(LED_RED, LED_02HZ); 
+			}
 			else
 			{
 				setled(LED_RED, LED_ON);
