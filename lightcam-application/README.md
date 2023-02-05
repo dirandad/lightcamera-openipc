@@ -81,7 +81,7 @@ lightcam can be installed on a fresh OpenIPC camera by copiing the following fil
 To start lightcam manually enter the following command (adapt configuration file path if needed):
 
 ```
-./lightcam /etc/lightcam.yml
+/usr/sbin/lightcam /etc/lightcam.yml
 ```
 
 To manage lightcam using `init.d`:
@@ -138,7 +138,7 @@ lightcam will publish on the following MQTT topics:
 // set to 1 when GPIO 0_3 activated, reset to 0 at end of temporisation mqtt.detectortempo after last activation of GPIO 0_3	
 {basetopic}/Get/Detection={0,1}
 
-(( updated each 60 sec or after reception of new message on a subscribed topic.
+// updated each 60 sec or after reception of new message on a subscribed topic.
 {basetopic}/Get/LightMode={on,detect,config}
 {basetopic}/Get/AlarmMode={on,off}
 {basetopic}/Get/PirSensibility={1-25}

@@ -1307,7 +1307,7 @@ sd
 5.4. Switch On the Camera and Wait 5 minutes.
 
 At this point it should be possible to connect the Camera url ```http://<ip>:85/```.
-![OpenIPC](/ressources/OpenIPC.png)
+![OpenIPC](/L620/ressources/OpenIPC.png)
 
 5.5. connect to the webinterface and set `admin` password and confirm. This password is used for `root` in linux.
 
