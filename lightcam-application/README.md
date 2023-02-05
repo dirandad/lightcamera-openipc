@@ -135,7 +135,7 @@ lightcam will publish on the following MQTT topics:
 // updated each 5 sec
 {basetopic}/Watchdog={0-32000}
 
-// set to 1 when GPIO 0_3 activated, reset to 0 at end of temporisation mqtt.detectortempo after last activation of GPIO 0_3	
+// set to 1 when GPIO 1_5 activated, reset to 0 at end of temporisation mqtt.detectortempo after last activation of GPIO 1_5	
 {basetopic}/Get/Detection={0,1}
 
 // updated each 60 sec or after reception of new message on a subscribed topic.
