@@ -22,6 +22,7 @@ Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible with
 - SoC : Hisilicon HI3518EV300
 - Device ID : 50H20L
 - Sensor : SC2315E
+- Flash : NOR 16MB W25Q128JV (SSOP20 format)
 - Wifi Card : Realtek RTL8188FU
 - Light managment card : see above
 
@@ -1172,6 +1173,19 @@ list partition
 active
 assign letter=<letter>
 ```
+
+If previous formatting instruction doesn't work, you can try theses instruction :
+- Insert an empty SD Card in the Camera
+- Start the camera. The SD Card will be formatted by the camera in ext2
+- Insert the SD Card in a Windows OS machine and ignore format error message
+- Open disk managment tool
+- select the SD Card and the unique partition (indicated as RAW)
+- Format the partition in FAT32 using default sector size. Quick formatting is enought.
+
+This SD Card should be working for running xm_autorun.sh script as described in this page.
+
+For more information, it seems that diskpart formatting instruction will create a partion reconnized as ```mmcblk0p1``` in the camera, and the second instruction the partition will be reconnized as ```mmcblk0``` 
+
 ### 2. Backup Original Firmware
 
 2.1. Format SD Card in FAT32.
