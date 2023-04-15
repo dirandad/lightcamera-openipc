@@ -1,4 +1,4 @@
-# Steinel L620 SC Camera
+# Steinel L620 (SC) Camera
 
 ![Steinel L620](../ressource/steinel-l-620-cam-sc-small.jpg)
 
