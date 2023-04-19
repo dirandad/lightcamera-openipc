@@ -18,10 +18,10 @@
 
 Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible without breaking a foot of the camera support. This confirm the need of developping a script to install a new firmware without need to open the camera. All connectors are stick (stick can be removed, sometime with breaking a connector...).
 
-### Steinel L620 SC camera is based on this hardware
+### Steinel L620 (SC) camera is based on this hardware
 - SoC : Hisilicon HI3518EV300
 - Device ID : 50H20L
-- Sensor : SC2315E
+- Sensor : SC2315E (L620 SC), SC2235P (L629)
 - Flash : NOR 16MB W25Q128JV (SSOP20 format)
 - Wifi Card : Realtek RTL8188FU
 - Light managment card : see above
@@ -903,11 +903,20 @@ Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The 
   - 2 PIR Sensors
   - 1 Light Sensor
   - 1 Led
-  - Based on microchip GX20-2120 (SSOP-20 format) ref U2. No document found about this reference. May be a false ref.
+  - Based on microchip ABOV MC95FG208R (TSSOP-20 format) ref U2. On Some SoC this reference is rebranded to a false reference.
 
 pinout of the U2 microchip :
 
-![Steinel L620 U2 pineout](/L620/ressources/steinel-l-620-sc-U2-pinout.png)
+![Steinel L620 U2 pineout](/L620/ressources/MC95FG208R.png)
+
+U2 is a microcontroller with :
+- 8-bit 8051 CPU
+- 8 Kbytes Flash Code Memory
+- 512 Bytes EEPROM Backup Memory
+- 512 Bytes SRAM Data Memory
+- 12-bit Analog to Digital Converter
+- Serial Interfaces
+- 10-bit PWM channel
 
 the communication bettween the light managment card and the camera SoC is serial using console serial port.
 Communication is only managed from camera to light management card. Light management don't seems to send any data to the module.
@@ -1102,8 +1111,15 @@ hisilicon: Get data from environment and set SENSOR as sc2315e
 ```
 
 If we show u-boot environement variables (fw_printenv from kernel), the following line is added:
+
+For L620 SC
 ```
 sensor=sc2315e
+```
+
+For L620
+```
+sensor=sc2235p
 ```
 
 20:57:33  <       majestic> [     hal] hisi_free_mem_ex@755          Free MMZ mem finally: 9536KB
