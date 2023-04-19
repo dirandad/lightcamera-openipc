@@ -909,6 +909,10 @@ pinout of the U2 microchip :
 
 ![Steinel L620 U2 pineout](/L620/ressources/MC95FG208R.png)
 
+Connection pinout of the U2  :
+
+![Steinel L620 U2 pineout](/L620/ressources/steinel-l-620-sc-U2-pinout.png)
+
 U2 is a microcontroller with :
 - 8-bit 8051 CPU
 - 8 Kbytes Flash Code Memory
@@ -917,6 +921,18 @@ U2 is a microcontroller with :
 - 12-bit Analog to Digital Converter
 - Serial Interfaces
 - 10-bit PWM channel
+
+Documentation can be found [here](/L620/ressources/MC95FG308-ABOV.pdf)
+
+Used Ports and Functions
+- P04 : AN4: Light Sensor
+- P10 : : PIR1
+- P11 : : PIR2
+- P14 : : Led
+- P03 : RxT0 : TX Camera
+- P02 : TxT0 : RX Camera
+- P22 : ResetB : GND
+- P15 : PWM1CB : PWM
 
 the communication bettween the light managment card and the camera SoC is serial using console serial port.
 Communication is only managed from camera to light management card. Light management don't seems to send any data to the module.
