@@ -21,7 +21,7 @@ Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible with
 ### Steinel L620 (SC) camera is based on this hardware
 - SoC : Hisilicon HI3518EV300
 - Device ID : 50H20L
-- Sensor : SC2315E (L620 SC), SC2235P (L629)
+- Sensor : SC2315E (L620 SC), SC2235P (L620)
 - Flash : NOR 16MB W25Q128JV (SSOP20 format)
 - Wifi Card : Realtek RTL8188FU
 - Light managment card : see above
