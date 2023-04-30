@@ -986,6 +986,31 @@ Tps lum con:     6h : 42 53 70 55 00 72 67 65 00 00 00 00 00 00 00 00
 Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00  
 ```
 
+After additionnal investiguation, it seems there difference between L620 and L620 SC :
+- L620 SC : Message is sent once
+- L620 : Message is sent 3 times, but with 3 differentes '6 digits code'
+
+Firmware 20230322 have improve light control. Between each command, an update command is sent.
+
+```
+42 <2 digits command> <2 digits value> 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+42 46 62 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+42 <2 digits command> <2 digits value> 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+42 46 62 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+42 <2 digits command> <2 digits value> 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+42 46 62 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
+
+6 digits codes:
+- 49 6E 63
+- 72 67 65
+- 75 65 00
+- 72 79 00
+- 00 00 00
+- 00 79 00
+
+(55 CC 00 06 00 05 7F 03 00 01 74 23)
+```
+
 ## OpenIPC installation using serial console
 
 This installation method need physical access to the serial port, and then dismount the camera.
