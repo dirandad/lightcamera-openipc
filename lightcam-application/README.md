@@ -242,6 +242,51 @@ mqtt:
 
 ```
 
+## Watchdog and Autorestart
+
+The following bash file will check if lightcam is running and restart it if lightcam is stopped.
+This script is named `/etc/lightcamwg.sh` :
+
+```
+#!/bin/sh
+
+# to enable this script, add the following line to crontab config file : '/etc/crontabs/root'
+# <----
+# *      *      *     *     *     /etc/lightcamwd.sh
+# ---->
+
+
+#check if lightcam is running
+echo "check lightcam status"
+
+if pidof -s lightcam >/dev/null 2>&1
+  then
+     # abc is running
+     echo "running"
+  else
+     # abc is not running
+     echo "not running"
+
+     echo "starting lightcam"
+     /etc/init.d/S50lightcam start
+     echo "done"
+
+fi
+```
+
+To autostart this script each minute, the following line must be added to crontab configuration file `/etc/crontabs/root`
+
+```
+# .---------------- minute (0 - 59)
+# |    .------------- hour (0 - 23)
+# |    |      .---------- day of month (1 - 31)
+# |    |      |     .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |    |      |     |     .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,t
+# |    |      |     |     |
+# *    *      *     *     *     command to be executed
+
+*      *      *     *     *     /etc/lightcamwd.sh
+```
 ## Resources and Reference
 
 LighCam use the following source :
