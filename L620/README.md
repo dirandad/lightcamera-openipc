@@ -1256,7 +1256,7 @@ sd
 
 `xm_autorun.sh` is a bash script that will be executed by Steinel Firmware during startup. If this file is not present on the SD Card, the SD Card is automatically formatted. This script will do the following task :
 - Enable wlan like if the SD Card was not present
-- Enable `telnetd` on port 23 so that is will be able to connect using `root:xmdhipc` credential to remotelly connect the camera
+- Enable `telnetd` on port 23 so that is will be able to connect using `root:xmhdipc` credential to remotelly connect the camera
 - If `ipctool` is present on the SD Card, a dump of the current firmware from the EPPROM will be copied to the SD Card.
 
 2.3. Switch Off the Camera and insert the SD Card in Slot
@@ -1309,7 +1309,7 @@ sd
 
 4.3. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet.
 
-4.4. Connect to the camera using telnet using `root:xmdhipc` credential
+4.4. Connect to the camera using telnet using `root:xmhdipc` credential
 
 4.5. Control that the SD Card is avaiable at `/tmp/mmcblock0/`
 
