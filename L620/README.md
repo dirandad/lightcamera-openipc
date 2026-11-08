@@ -1165,7 +1165,9 @@ For L620
 sensor=sc2235p
 ```
 
-20:57:33  <       majestic> [     hal] hisi_free_mem_ex@755          Free MMZ mem finally: 9536KB
+The SC2315E (L620 SC) is supported by OpenIPC out of the box.
+
+**The SC2235P (L620) is not**: OpenIPC detects it but ships no driver for it, and majestic stops with `No matches for 'sc2235p' in /etc/sensors directory` / `Cannot start SDK` (no image). Install the driver and sensor configuration provided in [sensor/sc2235p](sensor/sc2235p/README.md). They were tested with OpenIPC 2.3.04.14 and 2.6.11.06 (November 2026).
 
 ## Memory fine tunning
 
