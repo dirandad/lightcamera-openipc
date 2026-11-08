@@ -1,0 +1,228 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1160" width="1400" height="1160" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12">
+  <title>Steinel L620 / L620 SC - internal wiring</title>
+  <defs>
+    <marker id="arr-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e08a00"/></marker>
+    <marker id="arr-uart" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7b3fbf"/></marker>
+    <style>
+      .blk  { fill:#f6f7f9; stroke:#444; stroke-width:1.5; }
+      .hdr  { font-size:15px; font-weight:700; fill:#111; }
+      .sub  { font-size:11px; fill:#666; }
+      .pin  { fill:#222; }
+      .gpio { fill:#777; font-size:11px; }
+      .note { fill:#333; font-size:12px; }
+      .w    { fill:none; stroke-width:3; }
+      .l    { stroke:#8b5a2b; }
+      .n    { stroke:#1f6fd1; }
+      .pe   { stroke:#3a9a3a; stroke-dasharray:8 4; }
+      .v12  { stroke:#a01818; stroke-width:4; }
+      .v5   { stroke:#e74c3c; }
+      .gnd  { stroke:#222; }
+      .sig  { stroke:#e08a00; }
+      .uart { stroke:#7b3fbf; }
+      .aud  { stroke:#2a9d8f; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="1160" fill="#ffffff"/>
+
+  <text x="30" y="46" font-size="22" font-weight="700" fill="#111">Steinel L620 / L620 SC - internal wiring</text>
+  <text x="30" y="70" class="sub" font-size="13">Boards, cables and signals. RX / TX are named from the camera side. Arrows give the signal direction.</text>
+
+  <!-- ===================== BLOCKS ===================== -->
+  <!-- Mains -->
+  <rect class="blk" x="30" y="150" width="120" height="110" rx="6"/>
+  <text class="hdr" x="40" y="172">Mains</text>
+  <text class="sub" x="40" y="188">230 V AC</text>
+  <text class="pin" x="142" y="184" text-anchor="end">L</text>
+  <text class="pin" x="142" y="209" text-anchor="end">PE</text>
+  <text class="pin" x="142" y="234" text-anchor="end">N</text>
+
+  <!-- Power card -->
+  <rect class="blk" x="220" y="110" width="160" height="430" rx="6"/>
+  <text class="hdr" x="232" y="136">Power card</text>
+  <text class="sub" x="232" y="152">230 V AC → 12 V / 5 V</text>
+  <text class="pin" x="228" y="184">L</text>
+  <text class="pin" x="228" y="209">PE</text>
+  <text class="pin" x="228" y="234">N</text>
+  <text class="pin" x="372" y="204" text-anchor="end">5 VDC</text>
+  <text class="pin" x="372" y="234" text-anchor="end">PWD (light cmd)</text>
+  <text class="pin" x="372" y="264" text-anchor="end">GND</text>
+  <text class="sub" x="232" y="330">Drives the LED light</text>
+  <text class="sub" x="232" y="346">from the PWD signal</text>
+  <text class="pin" x="290" y="528" text-anchor="middle">12 VDC</text>
+  <text class="pin" x="345" y="528" text-anchor="middle">GND</text>
+
+  <!-- Light -->
+  <rect class="blk" x="220" y="620" width="160" height="80" rx="6" style="fill:#fff6d6"/>
+  <text class="hdr" x="232" y="650">Light</text>
+  <text class="sub" x="232" y="668">LED panel, 12 V</text>
+
+  <!-- Light management card -->
+  <rect class="blk" x="500" y="110" width="260" height="610" rx="6"/>
+  <text class="hdr" x="512" y="136">Light management card</text>
+  <text class="sub" x="512" y="152">Board 180204098 V1.1</text>
+  <text class="pin" x="508" y="204">5 VDC</text>
+  <text class="pin" x="508" y="234">PWD</text>
+  <text class="pin" x="508" y="264">GND</text>
+  <text class="pin" x="752" y="204" text-anchor="end">GND</text>
+  <text class="pin" x="752" y="234" text-anchor="end">ALM</text>
+  <text class="pin" x="752" y="264" text-anchor="end">5 VDC</text>
+  <text class="note" x="516" y="316" font-weight="600">On board</text>
+  <text class="note" x="516" y="336">• U2 MCU ABOV MC95FG208R</text>
+  <text class="note" x="516" y="354">• 2 × PIR sensor</text>
+  <text class="note" x="516" y="372">• Light sensor</text>
+  <text class="note" x="516" y="390">• Status LED</text>
+  <text class="note" x="516" y="408">• Speaker pass-through</text>
+  <text class="pin" x="752" y="444" text-anchor="end">Speaker +</text>
+  <text class="pin" x="752" y="469" text-anchor="end">Speaker −</text>
+  <text class="pin" x="752" y="524" text-anchor="end">RX ← U2 pin 19</text>
+  <text class="pin" x="752" y="554" text-anchor="end">TX → U2 pin 20</text>
+  <text class="pin" x="752" y="664" text-anchor="end">Speaker +</text>
+  <text class="pin" x="752" y="689" text-anchor="end">Speaker −</text>
+
+  <!-- Reset button card -->
+  <rect class="blk" x="880" y="110" width="150" height="270" rx="6"/>
+  <text class="hdr" x="890" y="136">Reset button card</text>
+  <text class="pin" x="888" y="204">GND</text>
+  <text class="pin" x="888" y="234">ALM</text>
+  <text class="pin" x="888" y="264">5 VDC</text>
+  <text class="pin" x="1022" y="174" text-anchor="end">LED A</text>
+  <text class="pin" x="1022" y="199" text-anchor="end">LED B</text>
+  <text class="pin" x="1022" y="229" text-anchor="end">Reset</text>
+  <text class="pin" x="1022" y="259" text-anchor="end">ALM</text>
+  <text class="pin" x="1022" y="294" text-anchor="end">5 VDC</text>
+  <text class="pin" x="1022" y="324" text-anchor="end">GND</text>
+  <text class="sub" x="890" y="352">Bicolour LED (red / green)</text>
+  <text class="sub" x="890" y="368">Reset push button</text>
+
+  <!-- Speaker -->
+  <rect class="blk" x="880" y="630" width="150" height="80" rx="6"/>
+  <text class="hdr" x="890" y="660">Speaker</text>
+
+  <!-- Camera -->
+  <rect class="blk" x="1150" y="110" width="220" height="590" rx="6" style="fill:#eef3fb"/>
+  <text class="hdr" x="1160" y="136">Camera module</text>
+  <text class="sub" x="1160" y="152">Hi3518EV300 · SC2315E (SC) / SC2235P</text>
+  <text class="pin"  x="1158" y="174">LED A</text>  <text class="gpio" x="1362" y="174" text-anchor="end">GPIO12 · 1_4</text>
+  <text class="pin"  x="1158" y="199">LED B</text>  <text class="gpio" x="1362" y="199" text-anchor="end">GPIO14 · 1_6</text>
+  <text class="pin"  x="1158" y="229">Reset</text>  <text class="gpio" x="1362" y="229" text-anchor="end">GPIO15 · 1_7 (0 = pressed)</text>
+  <text class="pin"  x="1158" y="259">ALM</text>    <text class="gpio" x="1362" y="259" text-anchor="end">GPIO13 · 1_5 (0 = motion)</text>
+  <text class="pin"  x="1158" y="294">5 VDC</text>  <text class="gpio" x="1362" y="294" text-anchor="end">power in</text>
+  <text class="pin"  x="1158" y="324">GND</text>
+  <text class="pin"  x="1158" y="444">Speaker +</text> <text class="gpio" x="1362" y="444" text-anchor="end">amp power GPIO3 · 0_3</text>
+  <text class="pin"  x="1158" y="469">Speaker −</text>
+  <text class="pin"  x="1158" y="524">RX</text>     <text class="gpio" x="1362" y="524" text-anchor="end">UART0 RXD · /dev/ttyAMA0</text>
+  <text class="pin"  x="1158" y="554">TX</text>     <text class="gpio" x="1362" y="554" text-anchor="end">UART0 TXD</text>
+  <text class="pin" x="1230" y="690" text-anchor="middle">Mic +</text>
+  <text class="pin" x="1300" y="690" text-anchor="middle">Mic −</text>
+
+  <!-- Mic -->
+  <rect class="blk" x="1150" y="730" width="220" height="50" rx="6"/>
+  <text class="hdr" x="1160" y="760">Microphone</text>
+
+  <!-- ===================== WIRES ===================== -->
+  <!-- Mains -> power card -->
+  <line class="w l"  x1="150" y1="180" x2="220" y2="180"/>
+  <line class="w pe" x1="150" y1="205" x2="220" y2="205"/>
+  <line class="w n"  x1="150" y1="230" x2="220" y2="230"/>
+
+  <!-- Power card <-> light management card -->
+  <line class="w v5"  x1="380" y1="200" x2="500" y2="200"/>
+  <line class="w sig" x1="500" y1="230" x2="382" y2="230" marker-end="url(#arr-sig)"/>
+  <line class="w gnd" x1="380" y1="260" x2="500" y2="260"/>
+
+  <!-- Power card -> light -->
+  <line class="w v12" x1="290" y1="540" x2="290" y2="620"/>
+  <line class="w gnd" x1="345" y1="540" x2="345" y2="620"/>
+
+  <!-- Light management card -> reset button card -->
+  <line class="w gnd" x1="760" y1="200" x2="880" y2="200"/>
+  <line class="w sig" x1="760" y1="230" x2="878" y2="230" marker-end="url(#arr-sig)"/>
+  <line class="w v5"  x1="760" y1="260" x2="880" y2="260"/>
+
+  <!-- Reset button card <-> camera -->
+  <line class="w sig" x1="1150" y1="170" x2="1032" y2="170" marker-end="url(#arr-sig)"/>
+  <line class="w sig" x1="1150" y1="195" x2="1032" y2="195" marker-end="url(#arr-sig)"/>
+  <line class="w sig" x1="1030" y1="225" x2="1148" y2="225" marker-end="url(#arr-sig)"/>
+  <line class="w sig" x1="1030" y1="255" x2="1148" y2="255" marker-end="url(#arr-sig)"/>
+  <line class="w v5"  x1="1030" y1="290" x2="1150" y2="290"/>
+  <line class="w gnd" x1="1030" y1="320" x2="1150" y2="320"/>
+
+  <!-- Light management card <-> camera (below the reset card) -->
+  <line class="w aud"  x1="760" y1="440" x2="1150" y2="440"/>
+  <line class="w aud"  x1="760" y1="465" x2="1150" y2="465"/>
+  <line class="w uart" x1="760" y1="520" x2="1148" y2="520" marker-end="url(#arr-uart)"/>
+  <line class="w uart" x1="1150" y1="550" x2="762" y2="550" marker-end="url(#arr-uart)"/>
+  <text class="sub" x="955" y="512" text-anchor="middle">9600 8N1 (OpenIPC) · 115200 u-boot console</text>
+  <text class="sub" x="955" y="575" text-anchor="middle">serial access point: RX + TX + GND, never VCC</text>
+
+  <!-- Light management card -> speaker -->
+  <line class="w aud" x1="760" y1="660" x2="880" y2="660"/>
+  <line class="w aud" x1="760" y1="685" x2="880" y2="685"/>
+
+  <!-- Camera -> mic -->
+  <line class="w aud" x1="1230" y1="700" x2="1230" y2="730"/>
+  <line class="w aud" x1="1300" y1="700" x2="1300" y2="730"/>
+
+  <!-- ===================== U2 PINOUT ===================== -->
+  <rect x="30" y="810" width="660" height="320" rx="6" fill="#fafafa" stroke="#bbb"/>
+  <text class="hdr" x="46" y="838">U2 - ABOV MC95FG208R pinout (20-pin, measured)</text>
+  <text class="sub" x="46" y="855">8051 core · 8 KB flash · 512 B EEPROM · 12-bit ADC</text>
+
+  <rect x="290" y="866" width="110" height="250" rx="4" fill="#2b2b2b"/>
+  <circle cx="304" cy="880" r="4" fill="#888"/>
+  <g font-size="11" fill="#fff">
+    <text x="296" y="888">1</text><text x="296" y="912">2</text><text x="296" y="936">3</text><text x="296" y="960">4</text><text x="296" y="984">5</text>
+    <text x="296" y="1008">6</text><text x="296" y="1032">7</text><text x="296" y="1056">8</text><text x="296" y="1080">9</text><text x="296" y="1104">10</text>
+    <text x="394" y="888" text-anchor="end">20</text><text x="394" y="912" text-anchor="end">19</text><text x="394" y="936" text-anchor="end">18</text><text x="394" y="960" text-anchor="end">17</text><text x="394" y="984" text-anchor="end">16</text>
+    <text x="394" y="1008" text-anchor="end">15</text><text x="394" y="1032" text-anchor="end">14</text><text x="394" y="1056" text-anchor="end">13</text><text x="394" y="1080" text-anchor="end">12</text><text x="394" y="1104" text-anchor="end">11</text>
+  </g>
+  <!-- left side, pins 1-10 -->
+  <g text-anchor="end">
+    <text x="282" y="888" fill="#222">Light sensor · <tspan fill="#777">P04 / AN4</tspan></text>
+    <text x="282" y="912" fill="#999">NC · P05</text>
+    <text x="282" y="936" fill="#7b3fbf">OCD DSCL (unconnected) · <tspan fill="#777">P06</tspan></text>
+    <text x="282" y="960" fill="#7b3fbf">OCD DSDA (unconnected) · <tspan fill="#777">P07</tspan></text>
+    <text x="282" y="984" fill="#e74c3c">3.3 V · <tspan fill="#777">VDD</tspan></text>
+    <text x="282" y="1008" fill="#222">PIR 1 · <tspan fill="#777">P10 / INT0</tspan></text>
+    <text x="282" y="1032" fill="#222">PIR 2 · <tspan fill="#777">P11 / INT1</tspan></text>
+    <text x="282" y="1056" fill="#999">NC · P12</text>
+    <text x="282" y="1080" fill="#999">NC · P13</text>
+    <text x="282" y="1104" fill="#222">Status LED · <tspan fill="#777">P14</tspan></text>
+  </g>
+  <!-- right side, pins 20-11 -->
+  <g>
+    <text x="408" y="888" fill="#777">P03 / RxD0 · <tspan fill="#7b3fbf">TX ← camera</tspan></text>
+    <text x="408" y="912" fill="#777">P02 / TxD0 · <tspan fill="#7b3fbf">RX → camera</tspan></text>
+    <text x="408" y="936" fill="#999">P01 · NC</text>
+    <text x="408" y="960" fill="#999">P00 · NC</text>
+    <text x="408" y="984" fill="#777">VSS · <tspan fill="#222">GND</tspan></text>
+    <text x="408" y="1008" fill="#777">P22 / RESETB · <tspan fill="#222">GND</tspan></text>
+    <text x="408" y="1032" fill="#777">P21 / XOUT · <tspan fill="#999">?</tspan></text>
+    <text x="408" y="1056" fill="#777">P20 / XIN · <tspan fill="#999">?</tspan></text>
+    <text x="408" y="1080" fill="#777">P16 / PWM3 · <tspan fill="#e08a00">PWD → power card</tspan></text>
+    <text x="408" y="1104" fill="#777">P15 / PWM1CB · <tspan fill="#e08a00">ALM → camera</tspan></text>
+  </g>
+
+  <!-- ===================== LEGEND & NOTES ===================== -->
+  <rect x="720" y="810" width="650" height="320" rx="6" fill="#fafafa" stroke="#bbb"/>
+  <text class="hdr" x="736" y="838">Legend</text>
+  <g>
+    <line class="w l"   x1="740" y1="862" x2="780" y2="862"/><text class="note" x="790" y="866">Mains L</text>
+    <line class="w n"   x1="740" y1="887" x2="780" y2="887"/><text class="note" x="790" y="891">Mains N</text>
+    <line class="w pe"  x1="740" y1="912" x2="780" y2="912"/><text class="note" x="790" y="916">Protective earth</text>
+    <line class="w v12" x1="740" y1="937" x2="780" y2="937"/><text class="note" x="790" y="941">12 VDC (light)</text>
+    <line class="w v5"  x1="950" y1="862" x2="990" y2="862"/><text class="note" x="1000" y="866">5 VDC</text>
+    <line class="w gnd" x1="950" y1="887" x2="990" y2="887"/><text class="note" x="1000" y="891">GND</text>
+    <line class="w sig" x1="950" y1="912" x2="990" y2="912"/><text class="note" x="1000" y="916">Logic signal (LED, reset, ALM, PWD)</text>
+    <line class="w uart" x1="950" y1="937" x2="990" y2="937"/><text class="note" x="1000" y="941">UART</text>
+    <line class="w aud" x1="1180" y1="862" x2="1220" y2="862"/><text class="note" x="1230" y="866">Audio</text>
+  </g>
+  <text class="hdr" x="736" y="985">Notes</text>
+  <text class="note" x="736" y="1008">• UART0 (/dev/ttyAMA0) is shared: u-boot console at 115200, then the light card link at 9600 8N1.</text>
+  <text class="note" x="736" y="1028">   The kernel console must be removed from bootargs, otherwise the light card receives garbage.</text>
+  <text class="note" x="736" y="1050">• The light card answers the camera: a 12-byte reply to each update frame (42 46 62 55 …).</text>
+  <text class="note" x="736" y="1072">• The 12 V light ground and the 5 V logic ground are not connected together.</text>
+  <text class="note" x="736" y="1094">• U2 can only be reprogrammed through OCD (pins 3-4), which is not wired on the board.</text>
+  <text class="note" x="736" y="1116">• ALM and PWD follow the measured pinout (pins 11 / 12).</text>
+</svg>

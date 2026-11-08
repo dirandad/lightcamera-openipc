@@ -11,12 +11,12 @@
    - [X] Expose detector status
    - [X] give light control : ON/OFF/Variable
    - [X] manage light parameters : ON/OFF management, Light %,...
-   - [X] Manage detector parameters : sensibility, duration,...
+   - [X] Manage detector parameters: sensitivity, duration,...
 - [X] Create a Migration Procedure without using Serial
 
 ## Camera dismounting and hardware identification
 
-Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible without breaking a foot of the camera support. This confirm the need of developping a script to install a new firmware without need to open the camera. All connectors are stick (stick can be removed, sometime with breaking a connector...).
+Dismounting Steinel cameras is quite hard, and does not seem feasible without breaking a foot of the camera support. This confirms the need to develop a script to install a new firmware without opening the camera. All connectors are glued (the glue can be removed, sometimes breaking a connector...).
 
 ### Steinel L620 (SC) camera is based on this hardware
 - SoC : Hisilicon HI3518EV300
@@ -24,11 +24,11 @@ Dismouting of Steinel Cameras is quite hard, and seems to don't be faisible with
 - Sensor : SC2315E (L620 SC), SC2235P (L620)
 - Flash : NOR 16MB W25Q128JV (SSOP20 format)
 - Wifi Card : Realtek RTL8188FU
-- Light managment card : see above
+- Light management card: see below
 
 ### Wiring diagram of the light
 
-![Steinel L620 Wiring Diagram](/L620/ressources/steinel-l-620-sc-wirring-diagram.png)
+![Steinel L620 Wiring Diagram](/L620/ressources/steinel-l-620-wiring-diagram.svg)
 
 ### Photos
 
@@ -54,20 +54,20 @@ Light Management card
 
 ### generalities
 
-The communication between the camera module and the light management extention card is done via UART port. It appear that this UART port is the console serial port.
-The port is only used at u-boot level. The kernel use this serial port for light management.
+The communication between the camera module and the light management extension card is done via a UART port. It appears that this UART port is the console serial port.
+The port is only used as a console at u-boot level. The kernel uses this serial port for light management.
 
 UART configuration at u-boot level for console : speed 115200 - ASCII
 
-UART configuration at kernel level for communication with light card : speed 9600 - Hex Bate
+UART configuration at kernel level for communication with light card : speed 9600 - Hex Byte
 
 UART configuration at kernel level for console : speed 115200 - ASCII
 
-the communication was donne with a 3.3VDC serial TTL USB adaptator. RX/TX and GND are connected to the camera board. Notice that GND are connected on all boards, but 5VDC/3.3VDC GND, 12VDC GND (light) and main power GND are not connected.
+The communication was done with a 3.3VDC serial TTL USB adapter. RX/TX and GND are connected to the camera board. Notice that GND is connected on all boards, but 5VDC/3.3VDC GND, 12VDC GND (light) and main power GND are not connected.
 
 ### u-boot connection
 
-using a serial communication with putty, it is possible to interrupt boot at u-boot level by pressing Ctrl+c.
+Using a serial communication with PuTTY, it is possible to interrupt boot at u-boot level by pressing Ctrl+c.
 
 Here is the full u-boot output on firmware 20220712
 
@@ -121,7 +121,7 @@ Starting kernel ...
 Uncompressing Linux... done, booting the kernel.
 ```
 
-Here is the list of the avaiable command the u-boot
+Here is the list of the available u-boot commands
 
 ```
 hisilicon # help
@@ -192,16 +192,16 @@ waitus  - wait for n us
 
 ### kernel connection
 
-As explain higher, serial console is not activated at kernel layer as it is used for the configuration of the light extention card. But for analysis propose, we can temporarly activate the serial console to access kernel. This can be done by adding the following u-boot environnement variable:
+As explained above, the serial console is not activated at kernel level, as it is used for the configuration of the light extension card. But for analysis purposes, we can temporarily activate the serial console to access the kernel. This can be done by adding the following u-boot environment variable:
 
 ```
 setenv xmuart 0; saveenv
 reset
 ```
-The result is the get kernel console at au baudrate of 115200.
+The result is a kernel console at a baudrate of 115200.
 
-after reboot it will be possible to connect with root login.
-The password can be identified by searching on internet de password hash find in the passwd file
+After reboot, it will be possible to connect with the root login.
+The password can be identified by searching the Internet for the password hash found in the passwd file
 ```
 # cat /etc/passwd
 root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
@@ -239,7 +239,7 @@ mmc write 0:1 0x42000000 0x10 0x8000
 
 ```
 
-Move SD Card on a linux machine and run (identify dev path of sd card, /dev/sdb in this case) :
+Move the SD Card to a Linux machine and run (identify dev path of sd card, /dev/sdb in this case) :
 
 ```
 sudo dd bs=512 skip=16 count=32768 if=/dev/sdb of=./fulldump20220712.bin
@@ -261,11 +261,11 @@ sf write 0x42000000 0x0 0x1000000;
 ## Activate telnetd
 
 Telnetd is part of busybox binary.
-To be able to analyze online the firmware with the Light management extension card, it is necessary to remotelly access the console with telnet, and disable the console on serial port. Following some CVE alert, main firmware of small device have disable all backdoor. So to activate telnel the following action need to be done :
+To be able to analyze the running firmware with the Light management extension card, it is necessary to remotely access the console with telnet, and disable the console on the serial port. Following some CVE alerts, most small device firmwares have disabled all backdoors. So to activate telnet, the following actions need to be done:
 
 ### Add u-boot telnetctrl variable
 
-This variable can be add from u-boot or from kernel
+This variable can be added from u-boot or from the kernel
 
 From u-boot
 
@@ -282,7 +282,7 @@ XmEnv -s telnetctrl 1
 
 ### Start telnetd and allow Lan access
 
-By default, when activating telnetd and trying to connect, you will get a Connection Rejected error. This is because telnet seems to be enable only for connection throw wan (native vpn?). By analysing busybox binary we can find a reference to a file at /var/Telnetd_WanCheckFlag.
+By default, when activating telnetd and trying to connect, you will get a Connection Rejected error. This is because telnet seems to be enabled only for connections through WAN (native VPN?). By analysing the busybox binary we can find a reference to a file at /var/Telnetd_WanCheckFlag.
 Indeed, by manually creating this file, we can observe that it is deleted when telnetd is starting. But when creating it after the call of telnetd, Lan telnet clients are allowed. So the following script will enable telnetd for local client:
 
 ```
@@ -296,12 +296,12 @@ sleep 1
 # need to exist after start of telnetd to allow local telnet connexion
 touch /var/Telnetd_WanCheckFlag
 ```
-By investigating the kernel we can find this file that contain the telnet allowed account
+By investigating the kernel we can find this file that contains the account allowed for telnet
 ```
 # cat /etc/xmtelnetdpw
 root:$1$RYIwEiRA$d5iRRVQ5ZeRTrJwGjRy.B0:0:0:root:/:/bin/sh
 ```
-Fortunately the hash of root password is the same than in /etc/passwd.
+Fortunately the hash of the root password is the same as in /etc/passwd.
 Then a remote client can connect to the IPC using the same root login and password.
 
 ```
@@ -319,19 +319,19 @@ boot     etc      lib      mnt      proc     sbin     tmp      utils
 
 ## original firmware deep inside
 
-firmware analyzed : 07.12.2022 (the one backup with the previous method).
+Firmware analyzed: 07.12.2022 (the one backed up with the previous method).
 
 ### offline extracting firmware
 
-extracting firmware using binwalk (could be needed to install additionnal extracting tools. Check binwalk output).
-This extraction give the possibility to find any text of file in the firmware.
+Extracting the firmware using binwalk (additional extraction tools may need to be installed. Check binwalk output).
+This extraction gives the possibility to find any text or file in the firmware.
 
 ```
 binwalk -e fulldump20220712.bin
 ```
 
-The result should be a folder with all the differents partition and content of the original firmware.
-This is usefull grep command to find a specific text in the whole firmware ('root' in this example) :
+The result should be a folder with all the different partitions and the content of the original firmware.
+Here is a useful grep command to find a specific text in the whole firmware ('root' in this example) :
 
 ```
 $ grep -rnw './' -e 'root'
@@ -435,7 +435,7 @@ From the bootargs variable,
 hi_sfc:0x40000(boot),0x540000(romfs),0x740000(user),0x180000(web),0x80000(custom),0x140000(mtd)
 ```
 
-and mount command (see lower to see how to get access to kernel terminal), 
+and the mount command (see below how to get access to the kernel terminal), 
 ```
 # mount
 /dev/root on / type squashfs (ro,relatime)
@@ -466,7 +466,7 @@ we can analyze the partitions structure of the ROM
 
 ### Starting sequence
 
-By analysing the script /etc/init.d/rcS, we can see that it manage the call to a autorun script on the SD Card
+By analysing the script /etc/init.d/rcS, we can see that it manages the call to an autorun script on the SD Card
 
 ```
 <fun_init definition>
@@ -509,12 +509,12 @@ else
 fi
 ```
 
-So by creating a bash script on the SD Card (formatted in FAT32) call xm_autorun.sh. It will be executed at startup.
-Testing show that the SD Card will only stay in FAT32 if this file exist, otherwise the IPC will formatted it in ext2.
+So by creating a bash script called xm_autorun.sh on the SD Card (FAT32 on the whole card, without partition table: see [1. Format SD Card](#1-format-sd-card)), it will be executed at startup.
+Testing shows that the SD Card will only stay in FAT32 if this file exists, otherwise the IPC will format it in ext2.
 
 ### Configuration partition
 
-As the main part of the kernel is mount in read only, the only folder that contain local configuration is /mnt/mdt/
+As the main part of the system is mounted read-only, the only folder that contains local configuration is /mnt/mtd/
 ```
 # ls -lsR /mnt/mtd/
 /mnt/mtd/:
@@ -604,12 +604,12 @@ psk="<Your Key>"
 ```
 ### Analyse using ipctool
 
-OpenIPC teams provide a very usefull tool to analyse a lot of reference of camera SoC.
+The OpenIPC team provides a very useful tool to analyse many camera SoCs.
 For more detail and to download this tool, go to this page : [ipctool](https://github.com/OpenIPC/ipctool)
 
-Download this tool and copy it to a SD card in FAT32 format. Don't avoid to create a xm_autorun.sh file (empty, or with whatever action) to avoid formatting of the SD Card.
+Download this tool and copy it to an SD card formatted as described in [1.1](#11-card-for-the-steinel-firmware-steps-2-and-4-fat32-on-the-whole-card). Don't forget to create an xm_autorun.sh file (empty, or with whatever action) to avoid formatting of the SD Card.
 
-ipctool will then give the following informations
+ipctool will then give the following information
 
 General Information :
 
@@ -797,7 +797,7 @@ state: saveEnd, 0
 
 ### Method
 
-Dynamic investiguation:
+Dynamic investigation:
 
 Three tools are used :
 - ipctool: check gpio value change in realtime
@@ -805,7 +805,7 @@ Three tools are used :
 ipctool gpio scan
 ```
 
-- XmGpio: in original firmware, the tool XmGpio can be used read and write GPIO
+- XmGpio: in original firmware, the tool XmGpio can be used to read and write GPIO
 ```
 Usage: XmGpio [sethigh,setlow,setdirin,setdirout,read,print][OPTION] ...
         Notice:
@@ -822,7 +822,7 @@ Usage: XmGpio [sethigh,setlow,setdirin,setdirout,read,print][OPTION] ...
                 XmGpio setdirin 5 6
 ```
 
-- XDemux: in original firmware, the tool XmDeux can be used to see how are used each GPIO
+- XmDemux: in original firmware, the tool XmDemux can be used to see how each GPIO is used
 ```
 Usage: XmDemux [getinfo,request,cancelrequest,print][OPTION] ...
         Notice:
@@ -890,7 +890,7 @@ The following table present the results of this analysis
 | 71 = 8_7 | -         | register 0x112c0048              | ?                    |
 
 
-Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The following trust table is respected:
+Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The following truth table is respected:
 |            | GPIO12 = 0 | GPIO12 = 1 |
 |------------|------------|------------|
 | GPIO14 = 0 | off        | Green      |
@@ -899,7 +899,7 @@ Concerning Green/Red Led: It is a duo-led connected between GPIO 12 and 14. The 
 
 ## light management extension card analysis
 
-- Light managment card :
+- Light management card:
   - 2 PIR Sensors
   - 1 Light Sensor
   - 1 Led
@@ -932,12 +932,14 @@ Used Ports and Functions
 - P03 : RxT0 : TX Camera
 - P02 : TxT0 : RX Camera
 - P22 : ResetB : GND
-- P15 : PWM1CB : PWM
+- P15 (pin 11) : PWM1CB : ALM (motion alarm to camera GPIO1_5)
+- P16 (pin 12) : PWM3 : PWD (light command to power card)
+- P06 / P07 (pins 3 / 4) : DSCL / DSDA : not connected (OCD programming interface)
 
-the communication bettween the light managment card and the camera SoC is serial using console serial port.
-Communication is only managed from camera to light management card. Light management don't seems to send any data to the module.
+The communication between the light management card and the camera SoC is serial, using the console serial port.
+Communication is only managed from camera to light management card. The light management card doesn't seem to send any data to the module.
 
-All configuration done from the Steinel App (constant light settings) send a 16 bytes data format to the light management module.
+All configuration done from the Steinel App (constant light settings) sends a 16-byte frame to the light management module.
 
 Data structure seems to be the following : 
 
@@ -986,11 +988,11 @@ Tps lum con:     6h : 42 53 70 55 00 72 67 65 00 00 00 00 00 00 00 00
 Tps lum con:    10h : 42 53 7A 55 00 72 67 65 00 00 00 00 00 00 00 00  
 ```
 
-After additionnal investiguation, it seems there difference between L620 and L620 SC :
+After additional investigation, there seem to be differences between L620 and L620 SC:
 - L620 SC : Message is sent once
-- L620 : Message is sent 3 times, but with 3 differentes '6 digits code'
+- L620 : Message is sent 3 times, but with 3 different '6 digits code'
 
-Firmware 20230322 have improve light control. Between each command, an update command is sent.
+Firmware 20230322 has improved light control. Between each command, an update command is sent.
 
 ```
 42 <2 digits command> <2 digits value> 55 00 <6 digits codes> 00 00 00 00 00 00 00 00
@@ -1013,7 +1015,7 @@ Firmware 20230322 have improve light control. Between each command, an update co
 
 ## OpenIPC installation using serial console
 
-This installation method need physical access to the serial port, and then dismount the camera.
+This installation method needs physical access to the serial port, and therefore dismounting the camera.
 
 Insert a SD Card in FAT32 format with the following OpenIPC bin file :
 - u-boot : u-boot-hi3518ev300-universal.bin
@@ -1104,7 +1106,7 @@ From u-boot, restart the Camera
 reset
 ```
 
-After restart, kernel should be runned after u-boot. Login in the kernel with :
+After restart, the kernel should run after u-boot. Login in the kernel with :
 
 ```
 login : root
@@ -1119,7 +1121,7 @@ firstboot
 
 ## Wi-Fi card activation
 
-RTL8188FU Wifi card is nativelly managed by OpenIPC ultimate version (not in lite version) but need to be activated. Edit the file /etc/network/interfaces with vi
+The RTL8188FU Wifi card is natively managed by the OpenIPC ultimate version (not in the lite version) but needs to be activated. Edit the file /etc/network/interfaces with vi
 
 ```
 vi /etc/network/interfaces
@@ -1138,7 +1140,7 @@ iface wlan0 inet dhcp
     post-down killall -q wpa_supplicant
 ```
 
-reboot the camera and connect to the camera web interface
+Reboot the camera and connect to the camera web interface
 
 ![OpenIPC](/L620/ressources/OpenIPC.png)
 
@@ -1151,7 +1153,7 @@ hisilicon: Get data from environment and set SENSOR as sc2315e
 ...
 ```
 
-If we show u-boot environement variables (fw_printenv from kernel), the following line is added:
+If we show u-boot environment variables (fw_printenv from the kernel), the following line is added:
 
 For L620 SC
 ```
@@ -1170,12 +1172,12 @@ sensor=sc2235p
 L620 has 64MB RAM onboard. This memory is used for OS but also for MMZ (media memory zone). This memory area is used for image calculation.
 In OpenIPC, the media application `majestic` control VB (Video Buffer) that use this memory.
 
-The variable `osmem` in u-boot environment set the memory limit used by linux. Then the rest is aviable for MMZ.
+The variable `osmem` in u-boot environment set the memory limit used by linux. Then the rest is available for MMZ.
 In original firmware `osmem=43MB`, in OpenIPC after fresh installation `osmem=32MB`.
 
 We then need to check the good parameter for `osmem`. MMZ size need can be affected by `majestic` parameters.
 
-It is possible to check MMZ usage with `majestic` output. Connecting in ssh kill and start majestic in command line.
+It is possible to check MMZ usage with the `majestic` output. Connect with SSH, then kill and restart majestic from the command line.
 
 ```
 kill `pidof majestic`
@@ -1184,9 +1186,9 @@ majestic
 ```
 
 Check the output of majestic and find the line `Free MMZ mem finally: <mem>`.
-With `osmem=32MB` and default `majestic` parameters, the output give `Free MMZ mem finally: 9984KB`. This meens that we can increase osmem until 9MB without affecting MMZ usage.
+With `osmem=32MB` and default `majestic` parameters, the output give `Free MMZ mem finally: 9984KB`. This means that we can increase osmem by up to 9MB without affecting MMZ usage.
 
-By settings `osmem=34MB` we have a good ajusted memory parameter.
+By setting `osmem=34MB` we have a well adjusted memory parameter.
 
 Command to change osmem from kernel:
 
@@ -1197,11 +1199,11 @@ fw_setenv osmem 34MB
 
 ## module development for light extension card
 
-A specific application is developped to manage light extension card and permite remote control. See [lightcam-application](https://github.com/dirandad/lightcamera-openipc/tree/main/lightcam-application)
+A specific application is developed to manage the light extension card and allow remote control. See [lightcam-application](https://github.com/dirandad/lightcamera-openipc/tree/main/lightcam-application)
 
 ## Migration Procedure
 
-Based on all previous analysis, here is presented the full and detailled migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26) without even open the camera.
+Based on all previous analysis, here is the full and detailed migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26) without even opening the camera.
 
 This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) method, but as a better option, migration is now based on ```ipctool upgrade``` function. This function will use a specific bundle that we will create in the next step.
 
@@ -1209,43 +1211,85 @@ This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) 
 
 Before to start the upgrade procedure, you need to have the following:
 - The Steinel L620 SC Camera running with official firmware and configured
-- A 8GB SD Card that you can format in FAT32
+- An SD Card of 32 GB or less, that you can format in FAT32 (see [1. Format SD Card](#1-format-sd-card))
 - ipctool : [ipctool](https://github.com/OpenIPC/ipctool)
 - 7-Zip installed : [7-Zip](https://www.7-zip.org/)
 - Last OpenIPC firmware for HI3518EV300 in ultimate version : [openipc.hi3518ev300-nor-ultimate.tgz](https://github.com/OpenIPC/firmware/releases/download/latest/openipc.hi3518ev300-nor-ultimate.tgz)
 
 ### 1. Format SD Card
 
-Format SD Card in FAT32. In Windows, use ```DISKPART```
+Two different SD Card layouts are needed in this procedure:
+
+| Steps | Firmware reading the card | Layout | Seen by the camera as |
+|---|---|---|---|
+| 2 and 4 (backup, upgrade) | Steinel firmware | **FAT32 on the whole card, no partition table** | `/dev/mmcblk0` |
+| 5 (OpenIPC configuration) | OpenIPC | FAT32 in one primary partition | `/dev/mmcblk0p1` |
+
+Use a card of 32 GB or less: Windows cannot format a bigger card in FAT32.
+
+> **Why the layout matters.** At boot, the Steinel `/etc/init.d/rcS` runs `mount /dev/mmcblk0` (the whole card) and only then looks for `xm_autorun.sh`. On a partitioned card this mount fails, the script is not found, and the camera **reformats the card**: you get back a card that Windows cannot read and no backup. This is the most common reason why "the script does not start" (issues #2 and #14). Tested on 2026-11-08 with Steinel firmware `V4.03.R12.Nat.20230322`: a partitioned FAT32 card was reformatted, and the same card in the whole-card layout ran the script.
+
+#### 1.1. Card for the Steinel firmware (steps 2 and 4): FAT32 on the whole card
+
+**Windows (no administrator rights needed):**
+1. Insert the card in the camera, switch the camera on, and wait 2 minutes. The camera formats the card on the whole device.
+2. Insert the card in the Windows PC. Ignore the message asking to format it.
+3. Note the drive letter of the card, then run in a command prompt (replace `G:` with your letter):
+
+   ```
+   format G: /FS:FAT32 /Q /V:L620 /Y
+   ```
+
+   This formats the volume the camera created, without creating a partition table.
+
+**Linux** (replace `/dev/sdX` with your card, and check it twice with `lsblk`: this erases the whole device):
+
+```
+sudo wipefs -a /dev/sdX
+sudo mkfs.vfat -F 32 -I -n L620 /dev/sdX
+```
+
+Note the `-I` and the device name without a partition number (`/dev/sdX`, not `/dev/sdX1`).
+
+**Check the layout** (Windows PowerShell, replace `2` with the disk number of the card from `Get-Disk`):
+
+```
+Get-Partition -DiskNumber 2 | Select-Object DriveLetter, Offset
+```
+
+`Offset 0` means FAT32 on the whole card (correct for the Steinel firmware). `Offset 1048576` means a partitioned card (correct for OpenIPC only).
+
+#### 1.2. Card for OpenIPC (step 5): FAT32 in one primary partition
+
+In a command prompt **run as administrator**:
 
 ```
 diskpart
 
 list disk
 select disk <number corresponding to your SD Card>
+detail disk
 clean
 create partition primary
 format quick fs=FAT32
-list partition
 active
-assign letter=<letter>
+assign
+exit
 ```
 
-If previous formatting instruction doesn't work, you can try theses instruction :
-- Insert an empty SD Card in the Camera
-- Start the camera. The SD Card will be formatted by the camera in ext2
-- Insert the SD Card in a Windows OS machine and ignore format error message
-- Open disk managment tool
-- select the SD Card and the unique partition (indicated as RAW)
-- Format the partition in FAT32 using default sector size. Quick formatting is enought.
+Check with `detail disk` that the selected disk is the SD Card before typing `clean`: `clean` erases the whole disk.
 
-This SD Card should be working for running xm_autorun.sh script as described in this page.
+Recent OpenIPC versions also mount a card without partition table, but this was not tested on the OpenIPC versions installed by this procedure. With some OpenIPC versions, a logical partition was needed instead (issue #14): replace `create partition primary` with `create partition extended` then `create partition logical`.
 
-For more information, it seems that diskpart formatting instruction will create a partion reconnized as ```mmcblk0p1``` in the camera, and the second instruction the partition will be reconnized as ```mmcblk0``` 
+#### 1.3. Common pitfalls
+
+- Copy the scripts with Unix (LF) line endings. A script with Windows (CRLF) line endings is not executed.
+- Safely eject the card before removing it, otherwise the last files written may be missing.
+- The camera runs `xm_autorun.sh` at boot. According to `/etc/mdev/automount.sh`, it also runs it when the card is inserted after the boot is complete, on both layouts. This was not tested.
 
 ### 2. Backup Original Firmware
 
-2.1. Format SD Card in FAT32.
+2.1. Format the SD Card in FAT32 **on the whole card, without partition table**, as described in [1.1](#11-card-for-the-steinel-firmware-steps-2-and-4-fat32-on-the-whole-card). A partitioned card is reformatted by the camera.
 
 2.2. Copy the content of the [sd-steinel](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-steinel) structure on the SD Card. Content of the SD Card must be at minimum the following:
 ```
@@ -1254,30 +1298,57 @@ sd
 └── xm_autorun.sh   // specific script
 ```
 
-`xm_autorun.sh` is a bash script that will be executed by Steinel Firmware during startup. If this file is not present on the SD Card, the SD Card is automatically formatted. This script will do the following task :
-- Enable wlan like if the SD Card was not present
-- Enable `telnetd` on port 23 so that is will be able to connect using `root:xmhdipc` credential to remotelly connect the camera
-- If `ipctool` is present on the SD Card, a dump of the current firmware from the EPPROM will be copied to the SD Card.
+`xm_autorun.sh` is a shell script executed by the Steinel firmware during startup. If this file is not found on the SD Card, the SD Card is automatically formatted. The script does the following, in this order, and writes only to the SD Card except for the last step:
+1. Starts the Wi-Fi as if the SD Card was not present (the Steinel `rcS` skips it when the script exists).
+2. Collects system information in `diag/`: firmware version (`FirmwareInfo`), partitions, kernel command line, `ipctool` output (SoC, sensor, flash), and copies of the Steinel boot scripts. Wi-Fi keys are not copied.
+3. Makes a full backup of the flash with `ipctool backup`, once (an existing backup is not overwritten).
+4. Enables `telnetd` on port 23, so that you can connect with the `root:xmhdipc` credentials. This writes the `telnetctrl` variable in the u-boot environment, which is why it is done **after** the backup.
+
+The script was tested on 2026-11-08 with a L620 on Steinel firmware `V4.03.R12.Nat.20230322`.
 
 2.3. Switch Off the Camera and insert the SD Card in Slot
 
-2.4. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet. Even if it should not be needed in this procedure, it is a good oportunity of investiguation in case of any step of this procedure failled.
+2.4. Switch On the Camera and Wait 5 minutes. The Camera will boot, start the network, and you should be able to connect to the Camera via telnet. Even if it should not be needed in this procedure, it is a good opportunity for investigation if any step of this procedure fails.
 
-2.5. Remove the SD Card and plug it in your computer. You should observe the following file:
+2.5. Switch Off the Camera, remove the SD Card and plug it in your computer. You should observe the following files:
 ```
 sd
+├── DONE                          // The script reached its end
+├── diag
+│   ├── run.log                   // What the script did, with timestamps
+│   ├── system.txt                // Firmware version, partitions, processes, network
+│   ├── ipctool.txt               // SoC, board, flash and sensor
+│   ├── ipctool-backup.txt        // Output of the backup command
+│   └── rcS.txt, automount.sh.txt, ...
+├── firmwaredump-<mac>.bin        // The backup (about 16.0 MB)
 ├── ipctool
-├── test.txt            // The script has been launched
-├── ipctoolbackup.txt   // The script has launched backup command
-├── firmwaredump.bin    // A backup has beed done!
 └── xm_autorun.sh
 ```
 
-At this step, it is highly recommanded to extract this firmwarefile using ```binwalk -e firmwaredump.bin``` and check that this file contain a none corrupted dump. 
+If the card comes back reformatted and unreadable by Windows, the script was not executed: check the card layout ([1.1](#11-card-for-the-steinel-firmware-steps-2-and-4-fat32-on-the-whole-card)).
+
+`diag/system.txt` contains camera-specific data (for example the Steinel unlock code in `ProductTrail`). Do not publish it.
+
+**About the backup format.** `ipctool backup` does not write a raw flash image: the file starts with a YAML header (the `ipctool` output), followed by each partition preceded by its size on 4 bytes (little-endian). It is 16777216 bytes plus about 1.5 KB. To restore with u-boot or a CH341A programmer, you need the raw 16 MB image. On Linux (or Git Bash on Windows), this rebuilds it and prints the SHA1 of each partition, to compare with the `sha1` values in `diag/ipctool.txt`:
+
+```
+F=firmwaredump-<mac>.bin
+pos=$(( $(stat -c %s "$F") - 16777216 - 6*4 ))   # header length
+rm -f fulldump-raw.bin
+for name in boot romfs user web custom mtd; do
+  sz=$(od -A n -t u4 -j $pos -N 4 "$F" | tr -d ' ')
+  tail -c +$((pos+5)) "$F" | head -c $sz >> fulldump-raw.bin
+  echo "$name size=$sz sha1=$(tail -c +$((pos+5)) "$F" | head -c $sz | sha1sum | cut -c1-8)"
+  pos=$((pos+4+sz))
+done
+ls -l fulldump-raw.bin   # must be 16777216 bytes
+```
+
+You can then check the content with ```binwalk -e fulldump-raw.bin```.
 
 ### 3. Create a Firmware bundle for ipctool upgrade
 
-Do not start this section if you don't acheive to backup original firmware !
+Do not start this section if you did not manage to back up the original firmware!
 
 3.1. Clone GitHub ipctool repository and explore it
 ```
@@ -1291,7 +1362,7 @@ cd ipctool/tools/
 ./make_images.sh hi3518ev300 ultimate
 ```
 
-If the script succed, you will find the bundle in `/output/upgrade.hi3518ev300`
+If the script succeeds, you will find the bundle in `/output/upgrade.hi3518ev300`
 The firmware is ready to be updated.
 
 ### 4. Update firmware using ipctool
@@ -1311,7 +1382,7 @@ sd
 
 4.4. Connect to the camera using telnet using `root:xmhdipc` credential
 
-4.5. Control that the SD Card is avaiable at `/tmp/mmcblock0/`
+4.5. Check that the SD Card is available at `/tmp/mmcblock0/`
 
 ```
 cd /tmp/mmcblock0/
@@ -1319,7 +1390,7 @@ cd /tmp/mmcblock0/
 ls -ls
 ```
 
-4.6. Run the upgrade command. (It can be needed to run this command two times depending Sofia detection process)
+4.6. Run the upgrade command. (It may be necessary to run this command twice, depending on the Sofia detection process)
 
 ```
 /tmp/mmcblock0/ipctool upgrade /tmp/mmcblock0/upgrade.hi3518ev300 --force
@@ -1350,7 +1421,7 @@ System will be restarted...
 
 ### 5. Configuration of OpenIPC
 
-5.1. Format SD Card in FAT32.
+5.1. Format the SD Card in FAT32 **with one primary partition**, as described in [1.2](#12-card-for-openipc-step-5-fat32-in-one-primary-partition).
 
 5.2. Copy the content of the [sd-openipc](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-openipc) structure on the SD Card. Content of the SD Card must be at minimum the following:
 ```
@@ -1360,7 +1431,7 @@ sd
     ├── etc
     │   ├── init.d
     │   │   └── S50lightcam      // start/stop script for lightcam
-    │   ├── lightcam.yml         // configuration file of ligtcam. MUST be adapted
+    │   ├── lightcam.yml         // configuration file of lightcam. MUST be adapted
     │   └── network
     │       └── interfaces       // network and wlan configuration. MUST be adapted
     └── usr
@@ -1371,6 +1442,14 @@ sd
 `autoconfig.sh` is a script that will make the following configuration:
 - set u-boot variable `osmem` to 34MB
 - remove serial output of console from u-boot variable `bootargs`
+
+The script edits `bootargs` in place and keeps the partition layout (`mtdparts`, `root=`) written by the upgrade bundle. It writes a log `autoconfig.log` on the SD Card, and OpenIPC deletes `autoconfig.sh` after running it.
+
+> **Warning: older versions of `autoconfig.sh` can brick the camera at the second boot.**
+> Before November 2026, `autoconfig.sh` rewrote `bootargs` with a hardcoded layout (`3072k(kernel),10240k(rootfs)`). The packed upgrade bundle writes a 2 MB kernel, so with that line the kernel looks for the rootfs at the wrong offset. The first boot works, because the change only applies at the next reboot (for example after setting the timezone in the web interface). From then on the kernel panics and the camera reboots every 20 seconds (`panic=20`). See issues #7 and #19.
+> If your camera is still running, check it with `cat /proc/mtd` and `fw_printenv bootargs`: `/proc/mtd` shows the layout of the current, working boot, and `bootargs` the one used at the next boot. The kernel partition size must be the same in both (`0x200000` = 2048k, `0x300000` = 3072k). If it differs, fix `bootargs` before rebooting. If the camera is already looping, recovery needs the serial console. The procedure confirmed in issue #19 is to flash the full OpenIPC image from u-boot, then `run setnor16m`.
+
+Scripts must use Unix (LF) line endings. A script with Windows (CRLF) line endings is silently ignored by the camera. The repository enforces LF with `.gitattributes`. If you edit the files on Windows, check the line endings before copying them to the SD Card.
 
 
 5.3. Switch Off the Camera and insert the SD Card in Slot
