@@ -1,16 +1,16 @@
 # lightcam-application
 
-Embedded application developped in c to expose/manage light extension card.
+Embedded application developed in C to expose/manage the light extension card.
 
 ## Introduction
 
-The application have the following functionnalities:
+The application has the following functionalities:
 
 - Manage YAML file
   - configuration for MQTT server
   - configuration for Serial port
 
-- Manage Serial communication with extention card
+- Manage Serial communication with extension card
   - Send configuration using Bytes array
 
 - Manage register configuration
@@ -21,16 +21,16 @@ The application have the following functionnalities:
   - Switch On and Off Led with application Status
 
 - Manage Alarm (detector) status
-  - Retrive detector status
+  - Retrieve detector status
 
 - Integrate a MQTT Client
   - Send Watchdog to MQTT Server
   - Receive Light Configuration from MQTT Server and send it to serial
   - Send detector status to MQTT Server
 
-## Prepare developpment environement
+## Prepare development environment
 
-The development environement is a cross compilation environement. In this case, it is based on:
+The development environment is a cross compilation environment. In this case, it is based on:
 - Ubuntu 22.04 WSL on Windows 11
 - Toolchain for OpenIPC to be able to compile c code for OpenIPC
 
@@ -71,7 +71,7 @@ $ ./build_lightcam.sh
 
 ## Installation
 
-lightcam can be installed on a fresh OpenIPC camera by copiing the following files:
+lightcam can be installed on a fresh OpenIPC camera by copying the following files:
 - `lightcam` 		--> `/usr/sbin/`
 - `S50lightcam`		--> `/etc/init.d/`
 - `lightcam.yml`	--> `/etc/`
@@ -94,8 +94,8 @@ To manage lightcam using `init.d`:
 
 ### Configuration
 
-Basic configuration of lightcam is done using a YAML file and contain:
-- MQTT server configuration including detector temporisation
+Basic configuration of lightcam is done using a YAML file and contains:
+- MQTT server configuration including the detector timeout
 - serial configuration
 
 ```
@@ -151,10 +151,10 @@ lightcam will publish on the following MQTT topics:
 
 ## Integration
 
-### Home Assitant Integration
+### Home Assistant Integration
 
 Based on MQTT topics, here is an example of integration in Home Assistant.
-As prerequiste, you need to add the MQTT integration to Home Assistant.
+As a prerequisite, you need to add the MQTT integration to Home Assistant.
 
 ![HA](/lightcam-application/ha-integration.png)
 
@@ -289,7 +289,7 @@ To autostart this script each minute, the following line must be added to cronta
 ```
 ## Resources and Reference
 
-LighCam use the following source :
+LightCam uses the following sources:
 - Embedded C MQTT Client: [Paho MQTT Client](https://www.eclipse.org/paho/index.php?page=clients/c/embedded/index.php)
 - YAML code : [Yaml code](https://github.com/tlsa/libcyaml)
 
