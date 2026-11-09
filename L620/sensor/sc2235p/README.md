@@ -35,7 +35,28 @@ They are derived from [OpenIPC/openhisilicon](https://github.com/OpenIPC/openhis
 
 The binary in this folder was built on 2023-04-23 from these sources, in a copy of openhisilicon (`libraries/sensor/hi3516ev200/smart_sc2235p/`), with the OpenIPC toolchain (`arm-openipc-linux-musleabi`, GCC 8.4.0). The binary found next to these sources in the 2023 build environment has the same MD5 as `libsns_sc2235p.so` above.
 
-To rebuild it, copy `src/` to `libraries/sensor/hi3516ev200/smart_sc2235p/` in an openhisilicon checkout and build it the same way as the other hi3516ev200 sensor drivers, with the OpenIPC toolchain for hi3518ev300.
+### Rebuild
+
+The build is reproducible: rebuilding `src/` as below gives a `libsns_sc2235p.so` with the same MD5 as the binary in this folder (`627acdadb84f8c61e6968add25a5695b`, checked on 2026-11-09).
+
+You need:
+- a Linux machine (WSL works);
+- the OpenIPC toolchain for hi3516ev200 / hi3518ev300 (`arm-openipc-linux-musleabi`, GCC 8.4.0, musl). The binary was built with the buildroot SDK of that toolchain;
+- a checkout of [OpenIPC/openhisilicon](https://github.com/OpenIPC/openhisilicon), for the MPP headers in `include/`. The binary was built with commit `2922830cf7242225aa77df87d59fcd063754fafa` (2023-02-25).
+
+```
+git clone https://github.com/OpenIPC/openhisilicon
+cd openhisilicon
+git checkout 2922830cf7242225aa77df87d59fcd063754fafa
+mkdir libraries/sensor/hi3516ev200/smart_sc2235p
+cp <this repository>/L620/sensor/sc2235p/src/* libraries/sensor/hi3516ev200/smart_sc2235p/
+cd libraries/sensor/hi3516ev200/smart_sc2235p
+TC=<toolchain folder>/bin/arm-openipc-linux-musleabi-
+make SDK_CODE=0x3516E200 ARCH=arm CC=${TC}gcc AR=${TC}ar
+md5sum libsns_sc2235p.so
+```
+
+With another toolchain version or another openhisilicon commit, the binary is different but should work, as long as the toolchain uses musl and targets the same MPP version (`Hi3516EV200_MPP_V1.0.1.2`). This was not tested.
 
 ## Tested on
 

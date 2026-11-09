@@ -1205,33 +1205,38 @@ A specific application is developed to manage the light extension card and allow
 
 ## Migration Procedure
 
-Based on all previous analysis, here is the full and detailed migration procedure from Steinel Firmware of 20220712 to a configured and customed OpenIPC firmware (tested with 2.2.12.26) without even opening the camera.
+This procedure migrates a Steinel L620 or L620 SC from the original Steinel firmware to OpenIPC **without opening the camera**: everything goes through the SD card, and later upgrades go through the network.
 
-This migration was first based on [Coupler](https://github.com/OpenIPC/coupler) method, but as a better option, migration is now based on ```ipctool upgrade``` function. This function will use a specific bundle that we will create in the next step.
+It was tested from start to end on 2026-11-09 on a L620 (SC2235P sensor) with Steinel firmware `V4.03.R12.Nat.20230322`, OpenIPC `nightly-20261108` (installation) and `nightly-20261109` (upgrade from the network).
+
+Overview:
+
+| Step | Boot | What happens | Your action |
+|---|---|---|---|
+| [1](#1-prepare-the-sd-card) | - | Prepare one SD card | On a PC |
+| [2](#2-first-boot-backup) | Steinel | The camera backs up its flash on the card | Switch on, wait 5 minutes, switch off, check the backup on a PC |
+| [3](#3-second-boot-installation) | Steinel, then OpenIPC | The camera installs OpenIPC, reboots, and configures itself (Wi-Fi, sensor driver, lightcam) | Switch on, wait 5 minutes |
+| [4](#4-first-access) | OpenIPC | - | Set the password in the web interface |
+| [5](#5-upgrade-openipc-from-the-network) | OpenIPC | Later upgrades from the web interface | - |
 
 ### 0. Prerequisites
 
-Before to start the upgrade procedure, you need to have the following:
-- The Steinel L620 SC Camera running with official firmware and configured
-- An SD Card of 32 GB or less, that you can format in FAT32 (see [1. Format SD Card](#1-format-sd-card))
-- ipctool : [ipctool](https://github.com/OpenIPC/ipctool)
-- 7-Zip installed : [7-Zip](https://www.7-zip.org/)
-- Last OpenIPC firmware for HI3518EV300 in ultimate version : [openipc.hi3518ev300-nor-ultimate.tgz](https://github.com/OpenIPC/firmware/releases/download/latest/openipc.hi3518ev300-nor-ultimate.tgz)
+- A Steinel L620 or L620 SC on the original firmware, connected to your Wi-Fi network with the Steinel app (you need to know which IP address it gets).
+- An SD card of 32 GB or less.
+- The files of this repository: [`scripts/sd-steinel`](scripts/sd-steinel) and [`scripts/sd-openipc`](scripts/sd-openipc).
+- The upgrade bundle `upgrade.hi3518ev300`, built with [`scripts/make_bundle.sh`](scripts/make_bundle.sh) (Linux, WSL, or any machine with bash, curl and python3):
 
-### 1. Format SD Card
+  ```
+  ./make_bundle.sh output
+  ```
 
-Two different SD Card layouts are needed in this procedure:
+  It downloads the latest OpenIPC firmware and U-Boot for the hi3518ev300 from the OpenIPC releases, and packs them with `upgrade_bundle.py` from [ipctool](https://github.com/OpenIPC/ipctool). The `make_images.sh` script of ipctool, used by earlier versions of this procedure, no longer supports the hi3518ev300.
 
-| Steps | Firmware reading the card | Layout | Seen by the camera as |
-|---|---|---|---|
-| 2 and 4 (backup, upgrade) | Steinel firmware | **FAT32 on the whole card, no partition table** | `/dev/mmcblk0` |
-| 5 (OpenIPC configuration) | OpenIPC | FAT32 in one primary partition | `/dev/mmcblk0p1` |
+### 1. Prepare the SD card
 
-Use a card of 32 GB or less: Windows cannot format a bigger card in FAT32.
+#### 1.1. Format the card: FAT32 on the whole card, without partition table
 
-> **Why the layout matters.** At boot, the Steinel `/etc/init.d/rcS` runs `mount /dev/mmcblk0` (the whole card) and only then looks for `xm_autorun.sh`. On a partitioned card this mount fails, the script is not found, and the camera **reformats the card**: you get back a card that Windows cannot read and no backup. This is the most common reason why "the script does not start" (issues #2 and #14). Tested on 2026-11-08 with Steinel firmware `V4.03.R12.Nat.20230322`: a partitioned FAT32 card was reformatted, and the same card in the whole-card layout ran the script.
-
-#### 1.1. Card for the Steinel firmware (steps 2 and 4): FAT32 on the whole card
+At boot, the Steinel `/etc/init.d/rcS` runs `mount /dev/mmcblk0` (the whole card) and only then looks for `xm_autorun.sh`. On a partitioned card this mount fails, the script is not found, and the camera **reformats the card**: you get back a card that Windows cannot read and no backup. This is the most common reason why "the script does not start" (issues #2 and #14). OpenIPC also reads this layout, so the same card is used for the whole procedure.
 
 **Windows (no administrator rights needed):**
 1. Insert the card in the camera, switch the camera on, and wait 2 minutes. The camera formats the card on the whole device.
@@ -1241,8 +1246,6 @@ Use a card of 32 GB or less: Windows cannot format a bigger card in FAT32.
    ```
    format G: /FS:FAT32 /Q /V:L620 /Y
    ```
-
-   This formats the volume the camera created, without creating a partition table.
 
 **Linux** (replace `/dev/sdX` with your card, and check it twice with `lsblk`: this erases the whole device):
 
@@ -1259,79 +1262,66 @@ Note the `-I` and the device name without a partition number (`/dev/sdX`, not `/
 Get-Partition -DiskNumber 2 | Select-Object DriveLetter, Offset
 ```
 
-`Offset 0` means FAT32 on the whole card (correct for the Steinel firmware). `Offset 1048576` means a partitioned card (correct for OpenIPC only).
+`Offset 0` means FAT32 on the whole card (correct). `Offset 1048576` means a partitioned card (the Steinel firmware reformats it).
 
-#### 1.2. Card for OpenIPC (step 5): FAT32 in one primary partition
+#### 1.2. Copy the files
 
-In a command prompt **run as administrator**:
+Copy on the card, at its root:
 
-```
-diskpart
-
-list disk
-select disk <number corresponding to your SD Card>
-detail disk
-clean
-create partition primary
-format quick fs=FAT32
-active
-assign
-exit
-```
-
-Check with `detail disk` that the selected disk is the SD Card before typing `clean`: `clean` erases the whole disk.
-
-Recent OpenIPC versions also mount a card without partition table, but this was not tested on the OpenIPC versions installed by this procedure. With some OpenIPC versions, a logical partition was needed instead (issue #14): replace `create partition primary` with `create partition extended` then `create partition logical`.
-
-#### 1.3. Common pitfalls
-
-- Copy the scripts with Unix (LF) line endings. A script with Windows (CRLF) line endings is not executed.
-- Safely eject the card before removing it, otherwise the last files written may be missing.
-- The camera runs `xm_autorun.sh` at boot. According to `/etc/mdev/automount.sh`, it also runs it when the card is inserted after the boot is complete, on both layouts. This was not tested.
-
-### 2. Backup Original Firmware
-
-2.1. Format the SD Card in FAT32 **on the whole card, without partition table**, as described in [1.1](#11-card-for-the-steinel-firmware-steps-2-and-4-fat32-on-the-whole-card). A partitioned card is reformatted by the camera.
-
-2.2. Copy the content of the [sd-steinel](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-steinel) structure on the SD Card. Content of the SD Card must be at minimum the following:
 ```
 sd
-├── ipctool         // OpenIPC multi tool
-└── xm_autorun.sh   // specific script
+├── ipctool                       // from scripts/sd-steinel
+├── xm_autorun.sh                 // from scripts/sd-steinel
+├── upgrade.hi3518ev300           // the bundle built with make_bundle.sh
+├── autoconfig.sh                 // from scripts/sd-openipc
+├── wifi.conf                     // made from scripts/sd-openipc/wifi.conf.example
+└── autoconfig                    // from scripts/sd-openipc
+    ├── etc
+    │   ├── init.d/S50lightcam
+    │   ├── lightcam.yml          // made from scripts/sd-openipc/lightcam.yml.example
+    │   ├── lightcamwd.sh
+    │   ├── modprobe.d/8188fu.conf
+    │   └── sensors/sc2235p_i2c_dc_ad.ini
+    ├── root/.ssh/authorized_keys // optional: your SSH public key
+    └── usr
+        ├── lib/sensors/libsns_sc2235p.so
+        └── sbin/lightcam
 ```
 
-`xm_autorun.sh` is a shell script executed by the Steinel firmware during startup. If this file is not found on the SD Card, the SD Card is automatically formatted. The script does the following, in this order, and writes only to the SD Card except for the last step:
-1. Starts the Wi-Fi as if the SD Card was not present (the Steinel `rcS` skips it when the script exists).
-2. Collects system information in `diag/`: firmware version (`FirmwareInfo`), partitions, kernel command line, `ipctool` output (SoC, sensor, flash), and copies of the Steinel boot scripts. Wi-Fi keys are not copied.
-3. Makes a full backup of the flash with `ipctool backup`, once (an existing backup is not overwritten).
-4. Enables `telnetd` on port 23, so that you can connect with the `root:xmhdipc` credentials. This writes the `telnetctrl` variable in the u-boot environment, which is why it is done **after** the backup.
+- **`wifi.conf`**: your Wi-Fi network, two lines `wlanssid=...` and `wlanpass=...` (no quotes, no spaces around `=`). It is read once and then **deleted from the card**.
+- **`autoconfig/etc/lightcam.yml`**: the MQTT settings of [lightcam](../lightcam-application/README.md), the application that controls the light. Use a different `topic` for each camera. Set `discovery: true` to get the camera as a device in Home Assistant without any YAML. It is installed readable by root only and then **deleted from the card**. Without it, lightcam is installed but not started.
+- **`autoconfig/root/.ssh/authorized_keys`**: optional, your SSH public key, to connect with `ssh root@<camera-ip>` without a password.
+- The SC2235P files are only used by the L620 (non-SC). On a L620 SC (SC2315E sensor, supported by OpenIPC) they are installed but not used.
 
-The script was tested on 2026-11-08 with a L620 on Steinel firmware `V4.03.R12.Nat.20230322`.
+Copy the scripts with Unix (LF) line endings: a script with Windows (CRLF) line endings is not executed. The repository enforces LF with `.gitattributes`; `wifi.conf` and `lightcam.yml` may have Windows line endings. Safely eject the card before removing it.
 
-2.3. Switch Off the Camera and insert the SD Card in Slot
+> `diag/system.txt`, written on the card at the first boot, contains camera-specific data (for example the Steinel unlock code in `ProductTrail`). Do not publish it.
 
-2.4. Switch On the Camera and Wait 5 minutes. The Camera will boot, start the network, and you should be able to connect to the Camera via telnet. Even if it should not be needed in this procedure, it is a good opportunity for investigation if any step of this procedure fails.
+### 2. First boot: backup
 
-2.5. Switch Off the Camera, remove the SD Card and plug it in your computer. You should observe the following files:
+2.1. Switch off the camera, insert the card, switch the camera on, and wait 5 minutes.
+
+`xm_autorun.sh` is run by the Steinel firmware at boot. It writes only to the card, except for the `telnetctrl` variable of the U-Boot environment (written after the backup). It:
+1. starts the Wi-Fi as if the card was not present (the Steinel `rcS` skips it when the script exists);
+2. collects system information in `diag/` (firmware version, partitions, `ipctool` output). Wi-Fi keys are not copied;
+3. makes a full backup of the flash with `ipctool backup`, once: `firmwaredump-<mac>.bin`;
+4. enables `telnetd` on port 23 (login `root`, password `xmhdipc`), for investigation if something goes wrong;
+5. **does not install OpenIPC at this boot**: it installs it only at a boot where a backup made at a *previous* boot is already on the card. You can check the backup in between.
+
+2.2. Switch off the camera, put the card in a PC, and check:
+
 ```
 sd
-├── DONE                          // The script reached its end
-├── diag
-│   ├── run.log                   // What the script did, with timestamps
-│   ├── system.txt                // Firmware version, partitions, processes, network
-│   ├── ipctool.txt               // SoC, board, flash and sensor
-│   ├── ipctool-backup.txt        // Output of the backup command
-│   └── rcS.txt, automount.sh.txt, ...
-├── firmwaredump-<mac>.bin        // The backup (about 16.0 MB)
-├── ipctool
-└── xm_autorun.sh
+├── DONE                       // the script reached its end
+├── diag/run.log               // ends with "upgrade skipped: no backup from a previous boot"
+└── firmwaredump-<mac>.bin     // about 16.0 MB
 ```
 
-If the card comes back reformatted and unreadable by Windows, the script was not executed: check the card layout ([1.1](#11-card-for-the-steinel-firmware-steps-2-and-4-fat32-on-the-whole-card)).
+If the card comes back reformatted and unreadable by Windows, the script was not executed: check the card layout ([1.1](#11-format-the-card-fat32-on-the-whole-card-without-partition-table)).
 
-`diag/system.txt` contains camera-specific data (for example the Steinel unlock code in `ProductTrail`). Do not publish it.
+2.3. **Copy `firmwaredump-<mac>.bin` and `diag/` to your PC and keep them**: this is the only way back to the Steinel firmware.
 
-**About the backup format.** `ipctool backup` does not write a raw flash image: the file starts with a YAML header (the `ipctool` output), followed by each partition preceded by its size on 4 bytes (little-endian). It is 16777216 bytes plus about 1.5 KB. To restore with u-boot or a CH341A programmer, you need the raw 16 MB image. On Linux (or Git Bash on Windows), this rebuilds it and prints the SHA1 of each partition, to compare with the `sha1` values in `diag/ipctool.txt`:
+**About the backup format.** `ipctool backup` does not write a raw flash image: the file starts with a YAML header (the `ipctool` output), followed by each partition preceded by its size on 4 bytes (little-endian). It is 16777216 bytes plus about 1.5 KB. To restore with u-boot or a CH341A programmer, you need the raw 16 MB image. On Linux (or Git Bash on Windows), this rebuilds it and prints the SHA1 of each partition, to compare with the `sha1` values in `diag/ipctool.txt` (`mtd`, the configuration partition, has none):
 
 ```
 F=firmwaredump-<mac>.bin
@@ -1346,130 +1336,57 @@ done
 ls -l fulldump-raw.bin   # must be 16777216 bytes
 ```
 
-You can then check the content with ```binwalk -e fulldump-raw.bin```.
+### 3. Second boot: installation
 
-### 3. Create a Firmware bundle for ipctool upgrade
+3.1. Put the card back in the camera, switch it on, and wait 5 minutes. **Do not switch it off during this time**: the flash is being written.
 
-Do not start this section if you did not manage to back up the original firmware!
+At this boot, `xm_autorun.sh` finds the backup of the previous boot and runs `ipctool upgrade upgrade.hi3518ev300 --force`. The first try usually fails while the Steinel application still holds the flash (`Cannot disarm watchdog`); the script tries a second time, which works. ipctool writes OpenIPC U-Boot, keeps the U-Boot environment, writes the kernel and the rootfs, and reboots the camera. If both tries fail, the bundle is renamed `upgrade.hi3518ev300.failed`, so that the camera does not retry at every boot, and the details are in `diag/ipctool-upgrade.txt`.
 
-3.1. Clone GitHub ipctool repository and explore it
-```
-git clone https://github.com/OpenIPC/ipctool
+At its first boot, OpenIPC mounts the card and runs `autoconfig.sh`, once. It writes `autoconfig.log` on the card and:
+- connects the camera to the Wi-Fi network of `wifi.conf` (U-Boot variables `wlanssid`, `wlanpass`, `wlandev=rtl8188fu-generic`), then deletes `wifi.conf`;
+- installs the files of `autoconfig/` with normal permissions, then renames the folder `autoconfig.done/`. Without this, OpenIPC copies the folder again at every boot, with the permissions of the FAT card (everyone can write `/etc` and `/root`, and dropbear refuses SSH keys);
+- installs `lightcam.yml` readable by root only, deletes it from the card, starts lightcam and adds a cron watchdog that restarts it;
+- frees the light card UART (`/dev/ttyAMA0`): `console=null` in `bootargs` and no login prompt (`getty`) on it. Without `console=`, recent OpenIPC kernels put their console on `ttyAMA0`, so the light card MCU would receive the kernel messages and the login prompt, and the prompt would take the answers of the MCU. U-Boot keeps its serial console;
+- sets the **CMA memory allocator** (`set_allocator cma 32M`): with the default allocator, Linux has 32 MB of RAM, about 8 MB free, and an upgrade from the network runs out of memory ([5](#5-upgrade-openipc-from-the-network));
+- makes U-Boot read 4 MB of kernel instead of the exact size written by ipctool, so that a later upgrade with a bigger kernel still boots;
+- disables the power saving of the Wi-Fi chip (`modprobe.d/8188fu.conf`): with it, about 30 % of the packets are lost.
 
-cd ipctool/tools/
-```
-3.2. Run the following command to create a bundle for L620 including OpenIPC u-boot and corresponding OpenIPC ultimate firmware for a 16MB Flash size camera.
+Some of these settings apply at the next boot (`bootargs`). You can reboot the camera once from the web interface after step 4.
 
-```
-./make_images.sh hi3518ev300 ultimate
-```
+### 4. First access
 
-If the script succeeds, you will find the bundle in `/output/upgrade.hi3518ev300`
-The firmware is ready to be updated.
+4.1. Find the IP address of the camera (in your router, or with `ping openipc.local`). The Wi-Fi MAC address is the same as with the Steinel firmware.
 
-### 4. Update firmware using ipctool
+4.2. Open `http://<camera-ip>/`. OpenIPC asks you to set the `root` password first. Until it is set, SSH accepts no command, even with a key.
 
-4.1. Copy `upgrade.hi3518ev300` on the SD Card. Content of the SD Card must be at minimum the following:
+4.3. In the web interface:
+- set the time zone;
+- set **IR-cut filter** to off. The L620 lights the scene with its own lamp at night, and the Steinel firmware never moved the filter: the camera works in day mode. OpenIPC warns when the filter is enabled with no GPIO configured.
 
-```
-sd
-├── ipctool
-├── upgrade.hi3518ev300
-└── xm_autorun.sh
-```
-
-4.2. Switch Off the Camera and insert the SD Card in Slot
-
-4.3. Switch On the Camera and Wait 5 minutes. The Camera will boot, active network and you should be able to connect on the Camera via telnet.
-
-4.4. Connect to the camera using telnet using `root:xmhdipc` credential
-
-4.5. Check that the SD Card is available at `/tmp/mmcblock0/`
+4.4. Check, on the camera (SSH) or on the card (`autoconfig.log`):
 
 ```
-cd /tmp/mmcblock0/
-
-ls -ls
+cat /mnt/mmcblk0/autoconfig.log
+fw_printenv sensor                   # sc2235p (L620) or sc2315e (L620 SC)
+logread | grep "SDK started"         # the video pipeline runs
+pidof lightcam                       # lightcam runs
 ```
 
-4.6. Run the upgrade command. (It may be necessary to run this command twice, depending on the Sofia detection process)
+The card can stay in the camera: `autoconfig.done/` is not copied again.
 
-```
-/tmp/mmcblock0/ipctool upgrade /tmp/mmcblock0/upgrade.hi3518ev300 --force
+### 5. Upgrade OpenIPC from the network
 
-There was no Sofia process detected
-Using '/tmp/mmcblock0/upgrade.hi3518ev300' as upgrade bundle
-        boot    0xb662e010, size: 262144 bytes
-        env     0x63010, size: 65536 bytes
-        kernel  0xb642d010, size: 2097152 bytes
-        rootfs  0xb5d7c010, size: 7012352 bytes
-Analyzing boot
-Analyzing env
-Analyzing kernel
-Analyzing rootfs
-Upgrading boot
-Erase failed, trying XM specific algorithm...ok
-Flashing [wwww]
-Upgrading env
-Flashing [w]
-Upgrading kernel
-Flashing [wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww]
-Upgrading rootfs
-Flashing [wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww]
-set_env_param: total_mem=64M
-System will be restarted...
-```
-4.6. After reboot, switch off the camera and remove the SD Card.
+Once installed, the camera is upgraded from its web interface, page **Update**, **Install**. Keep the settings (do not tick the option that wipes them). The camera downloads the firmware, writes it, and reboots by itself after 2 to 3 minutes.
 
-### 5. Configuration of OpenIPC
+What survives the upgrade, checked on 2026-11-09 from `nightly-20261108` to `nightly-20261109` (every file identical before and after):
+- the U-Boot environment: Wi-Fi, sensor, `bootargs`, `bootcmd`;
+- the overlay (`/overlay`, partition `rootfs_data`): sensor driver, lightcam and its configuration, SSH keys and host key, `inittab`, cron, majestic settings. `sysupgrade` copies it in RAM and writes it back after the new rootfs, whose size may change.
 
-5.1. Format the SD Card in FAT32 **with one primary partition**, as described in [1.2](#12-card-for-openipc-step-5-fat32-in-one-primary-partition).
+Requirements and pitfalls:
+- **The CMA memory allocator is needed** (set by `autoconfig.sh`). With the default allocator, the download is killed by the out-of-memory killer: nothing is written and the camera stays on its version, but the first attempt from the web interface left the camera frozen until it was switched off and on (the hardware watchdog was not running). For a camera installed before November 2026, set it once by SSH, then reboot: `set_allocator cma 32M`.
+- `sysupgrade` refuses an image that does not fit, before writing anything.
+- To go back to the previous build, `sysupgrade` prints the command before the upgrade, for example `sysupgrade --build=nightly-20261108-f7a749c`. `sysupgrade --history` lists the upgrades.
+- The same upgrade from SSH, with the log in the terminal: `sysupgrade --channel=nightly -k -r`.
+- Cameras migrated with the earlier versions of this procedure (OpenIPC 2.3, fixed partitions, 2 MB or 3 MB kernel) cannot use this: their `sysupgrade` is old, the archives it downloads are no longer published, and their partitions differ. They need to be migrated again, which needs the serial console or a CH341A programmer for now.
 
-5.2. Copy the content of the [sd-openipc](https://github.com/dirandad/lightcamera-openipc/tree/main/L620/scripts/sd-openipc) structure on the SD Card. Content of the SD Card must be at minimum the following:
-```
-sd
-├── autoconfig.sh                // autoconfig script
-└── autoconfig
-    ├── etc
-    │   ├── init.d
-    │   │   └── S50lightcam      // start/stop script for lightcam
-    │   ├── lightcam.yml         // configuration file of lightcam. MUST be adapted
-    │   └── network
-    │       └── interfaces       // network and wlan configuration. MUST be adapted
-    └── usr
-        └── sbin
-            └── lightcam         // lightcam binary. Sources are provided.
-```
-
-`autoconfig.sh` is a script that will make the following configuration:
-- set u-boot variable `osmem` to 34MB
-- remove serial output of console from u-boot variable `bootargs`
-
-The script edits `bootargs` in place and keeps the partition layout (`mtdparts`, `root=`) written by the upgrade bundle. It writes a log `autoconfig.log` on the SD Card, and OpenIPC deletes `autoconfig.sh` after running it.
-
-> **Warning: older versions of `autoconfig.sh` can brick the camera at the second boot.**
-> Before November 2026, `autoconfig.sh` rewrote `bootargs` with a hardcoded layout (`3072k(kernel),10240k(rootfs)`). The packed upgrade bundle writes a 2 MB kernel, so with that line the kernel looks for the rootfs at the wrong offset. The first boot works, because the change only applies at the next reboot (for example after setting the timezone in the web interface). From then on the kernel panics and the camera reboots every 20 seconds (`panic=20`). See issues #7 and #19.
-> If your camera is still running, check it with `cat /proc/mtd` and `fw_printenv bootargs`: `/proc/mtd` shows the layout of the current, working boot, and `bootargs` the one used at the next boot. The kernel partition size must be the same in both (`0x200000` = 2048k, `0x300000` = 3072k). If it differs, fix `bootargs` before rebooting. If the camera is already looping, recovery needs the serial console. The procedure confirmed in issue #19 is to flash the full OpenIPC image from u-boot, then `run setnor16m`.
-
-Scripts must use Unix (LF) line endings. A script with Windows (CRLF) line endings is silently ignored by the camera. The repository enforces LF with `.gitattributes`. If you edit the files on Windows, check the line endings before copying them to the SD Card.
-
-
-5.3. Switch Off the Camera and insert the SD Card in Slot
-
-5.4. Switch On the Camera and Wait 5 minutes.
-
-At this point it should be possible to connect the Camera url ```http://<ip>:85/```.
-![OpenIPC](/L620/ressources/OpenIPC.png)
-
-5.5. connect to the webinterface and set `admin` password and confirm. This password is used for `root` in linux.
-
-5.6. In the webinterface go to `Device status` page and click `Change timezone`. In the Timezone page, click `Pick up timezone from browser` and click `Save changes`.
-
-The camera should now be ready !
-
-
-
-
-
-
-
+> **Older versions of `autoconfig.sh` can brick the camera at the second boot.** Before November 2026, `autoconfig.sh` rewrote `bootargs` with a hardcoded layout (`3072k(kernel),10240k(rootfs)`). On cameras installed with the 2 MB kernel bundle of 2023, the kernel then looks for the rootfs at the wrong offset after the next reboot and reboots every 20 seconds (`panic=20`), issues #7 and #19. If such a camera still runs, compare `cat /proc/mtd` and `fw_printenv bootargs` before rebooting: the kernel partition size must be the same in both. Recovery of a looping camera needs the serial console: flash the full OpenIPC image from u-boot, then `run setnor16m` (issue #19).

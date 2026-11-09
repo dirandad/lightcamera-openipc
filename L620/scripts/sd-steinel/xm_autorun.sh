@@ -8,8 +8,10 @@
 # Results on the SD card:
 #   diag/ ...                 system information
 #   firmwaredump-<mac>.bin    full 16 MB flash dump (ipctool backup)
-#   firmwaredump-<mac>.md5
 #   DONE                      present when the script reached the end
+#
+# With upgrade.hi3518ev300 on the card and a backup made at a previous boot,
+# it also installs OpenIPC with "ipctool upgrade" (see the end of the script).
 
 SD=$(cd "$(dirname "$0")" && pwd)
 LOCK=/var/tmp/xm_diag.lock
@@ -74,11 +76,17 @@ if [ -x $SD/ipctool ] || chmod +x $SD/ipctool 2>/dev/null; then
 fi
 
 # --- full flash backup, once ---
-MAC=$(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d ':')
-[ -z "$MAC" ] && MAC=$(cat /sys/class/net/eth0/address 2>/dev/null | tr -d ':')
+# The Steinel firmware has no /sys/class/net: read the MAC address from ifconfig.
+MAC=$(ifconfig eth0 2>/dev/null | sed -n 's/.*HWaddr \([0-9A-Fa-f:]*\).*/\1/p' | tr -d ':' | tr 'A-F' 'a-f')
 [ -z "$MAC" ] && MAC=$(sed -n 's/.*mac: "\(.*\)"/\1/p' $OUT/ipctool.txt | tr -d ':')
 [ -z "$MAC" ] && MAC=unknown
 DUMP=$SD/firmwaredump-$MAC.bin
+# A backup made at a previous boot (whatever its name): the only case where the
+# upgrade below may run. No new backup is made then.
+OLD_DUMP=0
+for f in $SD/firmwaredump-*.bin; do
+	[ -s "$f" ] && { DUMP=$f; OLD_DUMP=1; }
+done
 if [ -x $SD/ipctool ] && [ ! -s $DUMP ]; then
 	log "backup to $DUMP"
 	$SD/ipctool backup $DUMP > $OUT/ipctool-backup.txt 2>&1
@@ -99,4 +107,34 @@ log "telnetd started"
 sync
 date > $SD/DONE
 sync
+
+# --- OpenIPC installation, only when all of these are true ---
+#  - the card holds the upgrade bundle upgrade.hi3518ev300,
+#  - the backup was made at a PREVIOUS boot (so you could check it on a PC),
+#  - the backup is at least 16 MB.
+# ipctool reboots the camera at the end. If it fails, the bundle is renamed to
+# upgrade.hi3518ev300.failed so that the camera does not retry at every boot.
+BUNDLE=$SD/upgrade.hi3518ev300
+if [ -f $BUNDLE ]; then
+	DSIZE=$(ls -l $DUMP 2>/dev/null | awk '{print $5}')
+	if [ "$OLD_DUMP" != 1 ]; then
+		log "upgrade skipped: no backup from a previous boot. Check $DUMP on a PC, then boot again"
+	elif [ -z "$DSIZE" ] || [ "$DSIZE" -lt 16777216 ]; then
+		log "upgrade skipped: backup too small ($DSIZE bytes)"
+	else
+		log "upgrade with $BUNDLE"
+		rm -f $SD/DONE
+		sync
+		$SD/ipctool upgrade $BUNDLE --force > $OUT/ipctool-upgrade.txt 2>&1
+		RC=$?
+		log "ipctool upgrade returned $RC, trying again"
+		# The first try can fail while the Steinel application holds the flash.
+		$SD/ipctool upgrade $BUNDLE --force >> $OUT/ipctool-upgrade.txt 2>&1
+		RC=$?
+		log "ipctool upgrade returned $RC, giving up"
+		mv $BUNDLE $BUNDLE.failed
+		date > $SD/DONE
+		sync
+	fi
+fi
 log "end"

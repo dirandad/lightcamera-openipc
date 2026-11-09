@@ -4,5 +4,12 @@
 *.yml           text eol=lf
 **/network/interfaces text eol=lf
 
-# Sensor driver files are installed as-is on the camera: never convert them.
+**/autoconfig/etc/** text eol=lf
+**/S50lightcam text eol=lf
+
+# Sensor driver files and binaries are installed as-is on the camera: never
+# convert them.
 L620/sensor/** -text
+**/sensors/** -text
+**/usr/sbin/lightcam -text
+lightcam-application/src/lightcam -text
