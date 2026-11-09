@@ -1,0 +1,19 @@
+# lightcam configuration. Copy this file to autoconfig/etc/lightcam.yml on the
+# SD card and adapt it. autoconfig.sh installs it as /etc/lightcam.yml
+# (readable by root only) and then deletes it from the card.
+mqtt:
+    server: "192.168.1.1"
+    port: 1883
+    username: "username"
+    password: "password"
+    # base topic of this camera: use a different one for each camera
+    topic: "camera1"
+    # seconds the detection stays on after the last PIR pulse
+    detectortempo: 60.0
+    # Home Assistant MQTT discovery: the camera appears as a device in Home
+    # Assistant, no YAML needed. Leave false if you already configured it in YAML.
+    discovery: false
+    discoveryprefix: "homeassistant"
+serial:
+    port: "/dev/ttyAMA0"
+    baudrate: 9600

@@ -77,4 +77,18 @@ int light_lowlightduration(unsigned char lowlightduration);
 
 int light_setconfig (struct struct_light_config config);
 
+// MCU status frame (answer to the update command)
+#define LIGHT_STATUS_LEN 10
+
+#define LIGHT_DIFF_PIR         0x01
+#define LIGHT_DIFF_ONTEMPO     0x02
+#define LIGHT_DIFF_LUX         0x04
+#define LIGHT_DIFF_LOWLEVEL    0x08
+#define LIGHT_DIFF_HIGHLEVEL   0x10
+#define LIGHT_DIFF_LOWDURATION 0x20
+
+int light_readstatus(unsigned char status[LIGHT_STATUS_LEN]);
+
+int light_checkstatus(struct struct_light_config config, const unsigned char status[LIGHT_STATUS_LEN]);
+
 #endif

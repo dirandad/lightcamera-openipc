@@ -28,6 +28,24 @@ The application has the following functionalities:
   - Receive Light Configuration from MQTT Server and send it to serial
   - Send detector status to MQTT Server
 
+## Version 2 (November 2026)
+
+The MQTT topics of version 1 are unchanged: an existing Home Assistant configuration keeps working. Changes:
+
+- **Fixes**:
+  - the lux sensibility was sent with the PIR command (`0x44`): setting `LuxSensibility` changed the PIR distance. The lux command is `0x58`;
+  - memory leak of the status LED: each call restarted the blinking thread without joining the old one (the red blinking was disabled for this reason), and the thread used its arguments after freeing them;
+  - stack overflow at each publication of the configuration (`char[2]` buffer for 2-digit values);
+  - the connection to the broker blocked the whole application for about 2 minutes when the broker did not answer (blocking `connect()`); it now times out after 5 s and retries after 10, 20, 40 then 60 s, and the detection and the MCU check go on meanwhile;
+  - the MQTT password is no longer written in the log;
+  - GPIO read compared with `strcmp` on a non-terminated string; register access from two threads without lock.
+- **Light card status**: every 60 s, and 2 s after each change, lightcam sends the update command and reads the status frame of the MCU, publishes it on `{basetopic}/Get/Status`, and sends the configuration again when the MCU does not have it (for example after a reset of the light card, issue #20). At most 3 tries in a row.
+- **Availability**: Last Will on `{basetopic}/Availability` (`online` / `offline`, retained): Home Assistant shows the camera as unavailable when lightcam or the camera stops.
+- **States** are published with QoS 1 and retained: Home Assistant has them at once after a restart.
+- **Home Assistant MQTT discovery**, optional (`discovery: true`): the camera appears as a device with all its entities, without YAML.
+
+Tested on 2026-11-09 on OpenIPC 2.3.04.14 (`ad-do-cami04`) and 2.6.11.08 (test camera).
+
 ## Prepare development environment
 
 The development environment is a cross compilation environment. In this case, it is based on:
@@ -53,28 +71,28 @@ $ git clone https://github.com/dirandad/lightcamera-openipc/
 
 $ cd ~/lightcamera-openipc/lightcam-application/src/
 
-$ chmod +x build_lightcam.sh
+$ TOOLCHAIN_PATH=~/arm-openipc-linux-musleabi_sdk-buildroot/bin sh build_lightcam.sh
 ```
 
-Edit `build_lightcam.sh` and set variables
+With a camera IP as argument, the script also copies the binary to the camera over SSH and restarts lightcam:
 
 ```
-TOOLCHAIN_PATH="/arm-openipc-linux-musleabi_sdk-buildroot/bin/"
-CAMIP="192.168.1.1"
+$ TOOLCHAIN_PATH=~/arm-openipc-linux-musleabi_sdk-buildroot/bin sh build_lightcam.sh 192.168.1.10
 ```
 
-Then build the application with
-
-```
-$ ./build_lightcam.sh
-```
+The build is reproducible: with the 2023 toolchain above, the sources of this folder give the `lightcam` binary of this folder and of `L620/scripts/sd-openipc/autoconfig/usr/sbin/` (MD5 `97c63ec33c089d4531d15b03bb51a811`).
 
 ## Installation
 
-lightcam can be installed on a fresh OpenIPC camera by copying the following files:
-- `lightcam` 		--> `/usr/sbin/`
-- `S50lightcam`		--> `/etc/init.d/`
-- `lightcam.yml`	--> `/etc/`
+The migration procedure installs lightcam from the SD card (see `L620/README.md`, Migration Procedure): put your `lightcam.yml` in `autoconfig/etc/` on the card.
+
+To install it by hand on an OpenIPC camera, copy the following files:
+- `lightcam` 		--> `/usr/sbin/` (mode 755)
+- `S50lightcam`		--> `/etc/init.d/` (mode 755)
+- `lightcamwd.sh`	--> `/etc/` (mode 755, see [Watchdog](#watchdog-and-autorestart))
+- `lightcam.yml`	--> `/etc/` (mode 600: it holds the MQTT password)
+
+`/dev/ttyAMA0` must be used by lightcam only. On recent OpenIPC versions the kernel console falls back to `ttyAMA0` when `bootargs` has no `console=`, and a login prompt (`getty`) runs on the console: set `console=null` in `bootargs` and comment the `getty` line of `/etc/inittab` (the SD card procedure does both).
 
 ## Usage
 
@@ -106,10 +124,17 @@ mqtt:
     password: "password"
     topic: "cameraip"
     detectortempo: 60.0
+    discovery: false
+    discoveryprefix: "homeassistant"
 serial: 
     port: "/dev/ttyAMA0"
     baudrate: 9600
 ```
+
+- `topic`: base topic of the camera, different for each camera. It is also the name of the device in Home Assistant.
+- `detectortempo`: seconds `Get/Detection` stays at `1` after the last PIR pulse.
+- `discovery` (version 2): `true` to publish the Home Assistant MQTT discovery messages. Leave `false` if the camera is already configured in YAML in Home Assistant, to avoid duplicate entities.
+- `discoveryprefix` (version 2): discovery prefix of Home Assistant, `homeassistant` by default.
 
 ### MQTT topics
 
@@ -135,6 +160,14 @@ lightcam will publish on the following MQTT topics:
 // updated each 5 sec
 {basetopic}/Watchdog={0-32000}
 
+// version 2, retained: "online" at connection, "offline" sent by the broker (Last Will)
+// when the camera disappears, or by lightcam when it stops
+{basetopic}/Availability={online,offline}
+
+// version 2, each 60 sec and 2 sec after a change: the 10 status bytes of the MCU in
+// hexadecimal, or "noanswer"
+{basetopic}/Get/Status=<10 bytes in hex>|noanswer
+
 // set to 1 when GPIO 1_5 activated, reset to 0 at end of temporisation mqtt.detectortempo after last activation of GPIO 1_5	
 {basetopic}/Get/Detection={0,1}
 
@@ -153,8 +186,11 @@ lightcam will publish on the following MQTT topics:
 
 ### Home Assistant Integration
 
-Based on MQTT topics, here is an example of integration in Home Assistant.
 As a prerequisite, you need to add the MQTT integration to Home Assistant.
+
+**With MQTT discovery (version 2, recommended).** Set `discovery: true` in `lightcam.yml`. The camera appears in Home Assistant (Settings, Devices & services, MQTT) as a device named after its base topic, with: detection (motion), light mode, alarm mode, PIR, lux, high and low light levels, temporisations, an update button and the MCU status. Its entities become unavailable when the camera is offline. Remove the YAML configuration below for this camera, if any, to avoid duplicates.
+
+**Without discovery**, here is an example of manual integration in Home Assistant, based on the MQTT topics.
 
 ![HA](/lightcam-application/ha-integration.png)
 
@@ -244,35 +280,7 @@ mqtt:
 
 ## Watchdog and Autorestart
 
-The following bash file will check if lightcam is running and restart it if lightcam is stopped.
-This script is named `/etc/lightcamwg.sh` :
-
-```
-#!/bin/sh
-
-# to enable this script, add the following line to crontab config file : '/etc/crontabs/root'
-# <----
-# *      *      *     *     *     /etc/lightcamwd.sh
-# ---->
-
-
-#check if lightcam is running
-echo "check lightcam status"
-
-if pidof -s lightcam >/dev/null 2>&1
-  then
-     # abc is running
-     echo "running"
-  else
-     # abc is not running
-     echo "not running"
-
-     echo "starting lightcam"
-     /etc/init.d/S50lightcam start
-     echo "done"
-
-fi
-```
+The script [`src/lightcamwd.sh`](src/lightcamwd.sh), installed as `/etc/lightcamwd.sh`, checks if lightcam is running and starts it again if it is not (the file was named `lightcamwg.sh` in this repository before November 2026). The SD card procedure installs it and adds it to cron.
 
 To autostart this script each minute, the following line must be added to crontab configuration file `/etc/crontabs/root`
 

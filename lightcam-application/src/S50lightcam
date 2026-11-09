@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Start telnet server
+# Start / stop lightcam (light card of the Steinel L620 / L620 SC)
 #
 
 LIGHTCAM_ARGS="/etc/lightcam.yml"
@@ -31,6 +31,7 @@ case "$1" in
 	;;
     restart|reload)
 	stop
+	sleep 2
 	start
 	;;
   *)
