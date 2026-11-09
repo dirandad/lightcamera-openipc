@@ -21,6 +21,22 @@ The L620 SC uses a SC2315E sensor, which is supported by OpenIPC: it does not ne
 - `libsns_sc2235p.so` was built in April 2023 with the OpenIPC toolchain (`arm-openipc-linux-musleabi`, GCC 8.4.0), for the HiSilicon MPP `Hi3516EV200_MPP_V1.0.1.2` API (`HI_MPI_ISP/AE/AWB_SensorRegCallBack`). It exports `stSnsSc2235pObj`. The register initialisation was written from I2C dumps of the sensor running under the Steinel firmware.
 - `sc2235p_i2c_dc_ad.ini`: MIPI, 10-bit RAW, 27 MHz, `lane_id = 0|2`, BGGR, 1920x1080 at 25 fps. Majestic selects the ini whose name contains the sensor name, so keep `sc2235p` in the file name.
 
+## Sources
+
+The `src/` folder contains the sources of `libsns_sc2235p.so`:
+
+| File | Content |
+|---|---|
+| `sc2235p_sensor_ctl.c` | **The actual change**: the sensor register initialisation, rewritten from I2C dumps of the SC2235P under the Steinel firmware. The software reset (`0x0103`) is disabled. |
+| `sc2235p_cmos.c`, `sc2235p_cmos_ex.h` | Identical to the `smart_sc2235` driver of OpenIPC/openhisilicon (AE, AWB, ISP callbacks), with `sc2235` renamed to `sc2235p` so that the driver exports `stSnsSc2235pObj` |
+| `Makefile` | Same as `smart_sc2235`, builds `libsns_sc2235p.so` and `libsns_sc2235p.a` |
+
+They are derived from [OpenIPC/openhisilicon](https://github.com/OpenIPC/openhisilicon) (`libraries/sensor/hi3516ev200/smart_sc2235`), distributed under the GPL-3.0 license of that repository. The files keep their original headers.
+
+The binary in this folder was built on 2023-04-23 from these sources, in a copy of openhisilicon (`libraries/sensor/hi3516ev200/smart_sc2235p/`), with the OpenIPC toolchain (`arm-openipc-linux-musleabi`, GCC 8.4.0). The binary found next to these sources in the 2023 build environment has the same MD5 as `libsns_sc2235p.so` above.
+
+To rebuild it, copy `src/` to `libraries/sensor/hi3516ev200/smart_sc2235p/` in an openhisilicon checkout and build it the same way as the other hi3516ev200 sensor drivers, with the OpenIPC toolchain for hi3518ev300.
+
 ## Tested on
 
 | Camera | OpenIPC | Result |
