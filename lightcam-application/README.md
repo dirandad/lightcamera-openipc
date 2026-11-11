@@ -43,6 +43,7 @@ The MQTT topics of version 1 are unchanged: an existing Home Assistant configura
 - **Availability**: Last Will on `{basetopic}/Availability` (`online` / `offline`, retained): Home Assistant shows the camera as unavailable when lightcam or the camera stops.
 - **States** are published with QoS 1 and retained: Home Assistant has them at once after a restart.
 - **Home Assistant MQTT discovery**, optional (`discovery: true`): the camera appears as a device with all its entities, without YAML.
+- **Version 2.0.1**: the MQTT client ID and the Home Assistant identifiers come from the base topic (`lightcam-<topic>`) instead of the host name, which is the same on every camera installed with the default settings (two clients with the same ID disconnect each other in a loop); lightcam stops at once on SIGTERM (it waited forever for the GPIO thread, so `S50lightcam stop` left it running).
 
 Tested on 2026-11-09 on OpenIPC 2.3.04.14 (`ad-do-cami04`) and 2.6.11.08 (test camera).
 
@@ -80,7 +81,7 @@ With a camera IP as argument, the script also copies the binary to the camera ov
 $ TOOLCHAIN_PATH=~/arm-openipc-linux-musleabi_sdk-buildroot/bin sh build_lightcam.sh 192.168.1.10
 ```
 
-The build is reproducible: with the 2023 toolchain above, the sources of this folder give the `lightcam` binary of this folder and of `L620/scripts/sd-openipc/autoconfig/usr/sbin/` (MD5 `97c63ec33c089d4531d15b03bb51a811`).
+The build is reproducible: with the 2023 toolchain above, the sources of this folder give the `lightcam` binary of this folder and of `L620/scripts/sd-openipc/autoconfig/usr/sbin/` (version 2.0.1, MD5 `d313e9c0e009f05483bdc0c66c030ad8`).
 
 ## Installation
 

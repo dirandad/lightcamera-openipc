@@ -71,7 +71,7 @@ Then Start mqtt Client :
  * @brief The function will be called whenever a PUBLISH message is received.
  */
 
-#define LIGHTCAM_VERSION "2.0.0"
+#define LIGHTCAM_VERSION "2.0.1"
 
 pthread_t gpiothread_id;
 int gpiothread_started = 0;
@@ -82,6 +82,7 @@ char hostname[256];
 char mqtt_subscribed_topic[1024];
 char mqtt_watchdog_topic[1024];
 char mqtt_availability_topic[1024];
+char mqtt_client_id[300];
 int watchdog = 0;
 // watchdog messages sent and not received back yet
 int watchdogmissed = 0;
@@ -537,7 +538,8 @@ int MQTTCamPublish(MQTTClient *c, char *topic, char *strvalue)
 }
 
 // Home Assistant MQTT discovery (only with "discovery: true" in lightcam.yml).
-// One device per camera, named after the base topic.
+// One device per camera, named and identified after the base topic: the host
+// name is the same on every camera installed with the default settings.
 static void publish_discovery_entity(MQTTClient *c, const char *component, const char *object, const char *body)
 {
 	char topic[512];
@@ -545,15 +547,15 @@ static void publish_discovery_entity(MQTTClient *c, const char *component, const
 	const char *base = config.mqtt.topic;
 
 	snprintf(topic, sizeof(topic), "%s/%s/%s/%s/config",
-		config.mqtt.discoveryprefix, component, hostname, object);
+		config.mqtt.discoveryprefix, component, base, object);
 	snprintf(payload, sizeof(payload),
 		"{\"name\":\"%s\",\"unique_id\":\"%s_%s\",\"object_id\":\"%s_%s\","
 		"\"availability_topic\":\"%s/Availability\","
-		"\"device\":{\"identifiers\":[\"%s\"],\"name\":\"%s\",\"manufacturer\":\"Steinel\",\"model\":\"L620 (OpenIPC)\",\"sw_version\":\"lightcam " LIGHTCAM_VERSION "\"},"
+		"\"device\":{\"identifiers\":[\"lightcam_%s\"],\"name\":\"%s\",\"manufacturer\":\"Steinel\",\"model\":\"L620 (OpenIPC)\",\"sw_version\":\"lightcam " LIGHTCAM_VERSION "\"},"
 		"%s}",
-		object, hostname, object, base, object,
+		object, base, object, base, object,
 		base,
-		hostname, base,
+		base, base,
 		body);
 	MQTTPublishRaw(c, topic, payload, QOS1, 1, 0);
 }
@@ -1200,7 +1202,11 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 		data.will.retained = 1;
 		data.will.qos = 1;
 		data.MQTTVersion = 3;
-		data.clientID.cstring = hostname;
+		// client ID: the base topic, which is unique per camera. The host name
+		// is the same on every camera installed with the default settings, and
+		// two clients with the same ID disconnect each other in a loop.
+		snprintf(mqtt_client_id, sizeof(mqtt_client_id), "lightcam-%s", config.mqtt.topic);
+		data.clientID.cstring = mqtt_client_id;
 		data.username.cstring = config.mqtt.username;
 		data.password.cstring = config.mqtt.password;
 
@@ -1553,13 +1559,12 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	// stop thread if exists
+	// The GPIO thread waits in epoll_wait() without timeout, and with musl
+	// pthread_cancel() may not wake it: joining it blocked the exit, and
+	// lightcam did not stop on SIGTERM ("S50lightcam stop" said OK but the
+	// process stayed). Do not wait for it: exit() ends every thread.
 	if(gpiothread_started)
-	{
 		pthread_cancel(gpiothread_id);
-		pthread_join(gpiothread_id, NULL);
-		gpiothread_started = 0;
-	}
 
 	printf("Stopping\n");
 
