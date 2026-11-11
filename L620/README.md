@@ -1387,6 +1387,51 @@ Requirements and pitfalls:
 - `sysupgrade` refuses an image that does not fit, before writing anything.
 - To go back to the previous build, `sysupgrade` prints the command before the upgrade, for example `sysupgrade --build=nightly-20261108-f7a749c`. `sysupgrade --history` lists the upgrades.
 - The same upgrade from SSH, with the log in the terminal: `sysupgrade --channel=nightly -k -r`.
-- Cameras migrated with the earlier versions of this procedure (OpenIPC 2.3, fixed partitions, 2 MB or 3 MB kernel) cannot use this: their `sysupgrade` is old, the archives it downloads are no longer published, and their partitions differ. They need to be migrated again, which needs the serial console or a CH341A programmer for now.
+- Cameras migrated with the earlier versions of this procedure (OpenIPC 2.3, fixed partitions, 2 MB or 3 MB kernel) cannot use this: their `sysupgrade` is old, the archives it downloads are no longer published, and their partitions differ. Migrate them once with [6](#6-migrate-a-camera-installed-with-openipc-23-2023), then they upgrade from the network.
+
+### 6. Migrate a camera installed with OpenIPC 2.3 (2023)
+
+Cameras installed with the 2023 versions of this procedure run OpenIPC 2.3 with fixed partitions (`2048k(kernel),6848k(rootfs)` or `3072k(kernel),10240k(rootfs)`, see `cat /proc/mtd`). They can be moved to the current OpenIPC **without opening them**, from a PC, if they have an SD card and SSH works. Tested on 2026-11-11, twice, on an exact copy of a camera installed in April 2023 (OpenIPC 2.3.04.14, 2 MB kernel, U-Boot of March 2023), migrated to `nightly-20261109`.
+
+How it works ([`scripts/migrate-from-2.3`](scripts/migrate-from-2.3)):
+- `migrate.sh`, run on the PC, copies the firmware (`firmware.bin` of the split archive) and `sd-openipc` to the SD card of the camera, then runs `prepare.sh` on the camera.
+- `prepare.sh` copies to the card what must survive, for `autoconfig.sh`: the Wi-Fi network (read from `/etc/network/interfaces`, so the password never leaves the camera), the host name, `lightcam.yml`, the light settings saved by lightcam (`/var/lib/lightcam`: without them lightcam would send its defaults to the lamp), the SSH keys. Then it sets U-Boot variables so that **U-Boot itself writes the new firmware at the next boot**: no running system, no RAM limit (Linux has only 2 to 7 MB free on these cameras), no partition in use.
+- At the next boot, U-Boot loads `openipc-fw.bin` from the card and checks its CRC32 **before erasing anything**. If the file is missing or wrong, the old system boots as before. Then it erases and writes the flash from `0x50000` (U-Boot and its environment are kept), reads it back and checks the CRC32 again. If the power fails during the write, or the check fails, the next boot writes again.
+- The new kernel boots with the 2023 U-Boot, finds its partitions by itself (split layout) and ignores the old `mtdparts`. At its first boot, `autoconfig.sh` restores Wi-Fi, host name, SSH key, sensor driver, lightcam and its configuration from the card.
+
+Steps:
+
+1. **Back up the flash** of the camera (it contains the Wi-Fi and MQTT credentials: keep it private):
+   ```
+   ssh root@<camera-ip> 'cat /dev/mtd0 /dev/mtd1 /dev/mtd2 /dev/mtd3 /dev/mtd4' > flash-<name>.bin
+   ```
+2. **Get the firmware**: extract `firmware.bin.hi3518ev300` from `openipc.hi3518ev300-nor-ultimate-split.tgz` (OpenIPC releases).
+3. **Prepare** (add `SSH_OPTS="-i <key>"` if needed):
+   ```
+   ./scripts/migrate-from-2.3/migrate.sh <camera-ip> firmware.bin.hi3518ev300
+   ```
+   It stops at the first error. To cancel afterwards, before rebooting: `ssh root@<camera-ip> fw_setenv mig 0`.
+4. **Reboot**: `ssh root@<camera-ip> reboot`. After 2 to 3 minutes the camera is back on Wi-Fi, with the same address.
+5. Open `http://<camera-ip>/`, **set the root password**, and paste your SSH public key (until the password is set, SSH accepts no command).
+6. **Reboot once more**: the CMA memory allocator and `console=null` apply at this boot. Then check `cat /mnt/mmcblk0*/autoconfig.log`.
+
+What is not kept: the majestic settings (image, streams, night mode: set **IR-cut filter** to off again), the web interface password, and any file you added by hand.
+
+#### 6.1. Optional: replace U-Boot
+
+The 2023 U-Boot boots the current firmware, and network upgrades do not touch U-Boot, so this is not needed. The current OpenIPC U-Boot (2022.10) finds the kernel and the rootfs by itself, and has recovery features, but most of them only work with its default environment, which this procedure does not restore (the environment holds the Wi-Fi settings).
+
+**This is the riskiest write of the flash**: if the power fails during the ~2 s of the write, the camera no longer starts and needs the serial console or a CH341A programmer. Do it where someone can switch the power off and on, and never during the reboot that writes it.
+
+```
+./scripts/migrate-from-2.3/update-uboot.sh <camera-ip> u-boot-hi3518ev300-nor.bin
+ssh root@<camera-ip> reboot
+```
+
+At this reboot the running U-Boot loads `openipc-uboot.bin` from the card, checks its CRC32 before erasing anything, writes it, reads it back and checks it, up to 3 times, then boots as usual. The new U-Boot starts at the following boot, with the kept environment. Tested on 2026-11-11 on the test camera, after the migration: U-Boot 2016.11 of March 2023 replaced by U-Boot 2022.10 of 2026-11-09, environment kept, camera back with all its settings.
+
+Notes:
+- The SD card can be FAT32 on the whole card or in one partition. OpenIPC 2.3 does not mount a card without partition table by itself: `migrate.sh` mounts it.
+- On the light card side, if the MCU no longer answers (`Get/Status=noanswer`) and the lamp no longer lights on motion, switch the power of the lamp off for 10 s: rebooting the camera alone does not reset the MCU.
 
 > **Older versions of `autoconfig.sh` can brick the camera at the second boot.** Before November 2026, `autoconfig.sh` rewrote `bootargs` with a hardcoded layout (`3072k(kernel),10240k(rootfs)`). On cameras installed with the 2 MB kernel bundle of 2023, the kernel then looks for the rootfs at the wrong offset after the next reboot and reboots every 20 seconds (`panic=20`), issues #7 and #19. If such a camera still runs, compare `cat /proc/mtd` and `fw_printenv bootargs` before rebooting: the kernel partition size must be the same in both. Recovery of a looping camera needs the serial console: flash the full OpenIPC image from u-boot, then `run setnor16m` (issue #19).

@@ -139,6 +139,12 @@ if [ -d "$AC" ]; then
 	mv "$AC" "$AC.done" && log "autoconfig/ renamed to autoconfig.done/ on the card"
 fi
 
+# Host name from autoconfig/etc/hostname (kept by the migration from OpenIPC
+# 2.3): apply it now, init only reads /etc/hostname at boot.
+if [ -s /etc/hostname ] && [ "$(hostname)" != "$(cat /etc/hostname)" ]; then
+	hostname -F /etc/hostname && log "host name: $(hostname)"
+fi
+
 # SSH key copied from autoconfig/root/.ssh/authorized_keys (/root/.ssh is a
 # link to /etc/dropbear on OpenIPC).
 if [ -f /root/.ssh/authorized_keys ]; then
