@@ -14,6 +14,8 @@ Contributors:
 #include <termios.h> /* POSIX Terminal Control Definitions */
 #include <unistd.h>  /* UNIX Standard Definitions          */ 
 #include <errno.h>   /* ERROR Number Definitions           */
+#include <poll.h>
+#include <time.h>
 
 /*
 The values for parity are 0 (meaning no parity)
@@ -45,7 +47,9 @@ const unsigned char LIGHTCMD_UPDATE            = 0x46;
 const unsigned char LIGHTCMD_LIGHTMODE         = 0x4d;
 const unsigned char LIGHTCMD_ALARMMODE         = 0x41;
 const unsigned char LIGHTCMD_SETPIRSENSIBILITY = 0x44;
-const unsigned char LIGHTCMD_SETLUXSENSIBILITY = 0x44;
+// 0x58 ('X'). It was 0x44 before 2026-11, the PIR command: setting the lux
+// sensibility changed the PIR distance instead (checked on the MCU status frame).
+const unsigned char LIGHTCMD_SETLUXSENSIBILITY = 0x58;
 const unsigned char LIGHTCMD_SETHIGHLIGHTLEVEL = 0x48;
 const unsigned char LIGHTCMD_ONTEMPORISATION   = 0x54;
 const unsigned char LIGHTCMD_LOWLIGHTDURATION  = 0x53;
@@ -130,7 +134,8 @@ int set_blocking (int fd, int should_block)
         }
 
         tty.c_cc[VMIN]  = should_block ? 1 : 0;
-        tty.c_cc[VTIME] = 5;            // 0.5 seconds read timeout
+        // non blocking: read() returns at once; light_readstatus() waits with poll()
+        tty.c_cc[VTIME] = should_block ? 5 : 0;
 
         if (tcsetattr (fd, TCSANOW, &tty) != 0)
 		{
@@ -253,10 +258,96 @@ int light_sendcommand(unsigned char command, unsigned char param, int extparam)
 
 	
 	unsigned char bytearray[]={0x42, command, param, 0x55, 0x00, extparam1, extparam2, extparam3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-	
-	write (port_fd, bytearray, 16);
-	
+
+	if (write (port_fd, bytearray, 16) != 16)
+	{
+		printf ("serial error: write failed: %s\n", strerror (errno));
+		return -1;
+	}
+	// wait until the 16 bytes are sent (about 17 ms at 9600 bauds)
+	tcdrain (port_fd);
+
 	return 0;
+}
+
+static long now_ms(void)
+{
+	struct timespec ts;
+	clock_gettime (CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
+}
+
+// Send the update command and read the status frame of the MCU.
+// The MCU answers only the update command, in less than 0.5 s, with 12 bytes:
+// 0x42, 10 status bytes, 0x55. The status bytes use the command codes:
+//   status[0] PIR distance (0x60 + pirsensibility)
+//   status[1] on temporisation code
+//   status[2] lux sensibility (0x60 + luxsensibility)
+//   status[3], status[4] unknown
+//   status[5] low light level (0x60 + lowlightlevel)
+//   status[6] high light level (0x67 + highlightlevel)
+//   status[7] low light duration code
+//   status[8], status[9] unknown
+// Returns 0 when a frame was read, -1 otherwise.
+int light_readstatus(unsigned char status[LIGHT_STATUS_LEN])
+{
+	if (port_fd < 0)
+		return -1;
+
+	unsigned char frame[LIGHT_STATUS_LEN + 2];
+	int len = 0;
+
+	tcflush (port_fd, TCIFLUSH);     // drop old bytes (old answers, noise)
+	if (light_update () < 0)
+		return -1;
+
+	long end = now_ms () + 1000;
+	while (now_ms () < end)
+	{
+		struct pollfd pfd = { port_fd, POLLIN, 0 };
+		long left = end - now_ms ();
+		if (left <= 0)
+			break;
+		if (poll (&pfd, 1, (int)left) <= 0)
+			continue;
+
+		unsigned char c;
+		while (read (port_fd, &c, 1) == 1)
+		{
+			if (len == 0 && c != 0x42)
+				continue;          // wait for the start byte
+			frame[len++] = c;
+			if (len == LIGHT_STATUS_LEN + 2)
+			{
+				if (frame[LIGHT_STATUS_LEN + 1] == 0x55)
+				{
+					memcpy (status, frame + 1, LIGHT_STATUS_LEN);
+					return 0;
+				}
+				// not a frame: look for another start byte in what we got
+				int i;
+				for (i = 1; i < len && frame[i] != 0x42; i++)
+					;
+				memmove (frame, frame + i, len - i);
+				len -= i;
+			}
+		}
+	}
+	return -1;
+}
+
+// Compare a status frame with the expected configuration.
+// Returns a bit mask of the settings that differ (0: all good).
+int light_checkstatus(struct struct_light_config config, const unsigned char status[LIGHT_STATUS_LEN])
+{
+	int diff = 0;
+	if (status[0] != (unsigned char)(0x60 + config.pirsensibility))  diff |= LIGHT_DIFF_PIR;
+	if (status[1] != config.ontemporisation)                          diff |= LIGHT_DIFF_ONTEMPO;
+	if (status[2] != (unsigned char)(0x60 + config.luxsensibility))  diff |= LIGHT_DIFF_LUX;
+	if (status[5] != (unsigned char)(0x60 + config.lowlightlevel))   diff |= LIGHT_DIFF_LOWLEVEL;
+	if (status[6] != (unsigned char)(0x67 + config.highlightlevel))  diff |= LIGHT_DIFF_HIGHLEVEL;
+	if (status[7] != config.lowlightduration)                         diff |= LIGHT_DIFF_LOWDURATION;
+	return diff;
 }
 
 

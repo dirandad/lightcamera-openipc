@@ -13,11 +13,32 @@
 
   /* ERROR Number Definitions           */
 
+#include <pthread.h>
+
 enum REG_OPS { OP_READ, OP_WRITE };
+
+static bool mem_reg_unlocked(uint32_t addr, uint32_t *data, enum REG_OPS op);
+
+// The LED blinking thread and the main thread both access the registers, and
+// mem_reg keeps a static mapping: serialise the accesses. Cancellation is
+// disabled while the lock is held, so that setled() cannot cancel the blinking
+// thread in the middle of an access and leave the lock taken.
+static pthread_mutex_t mem_lock = PTHREAD_MUTEX_INITIALIZER;
+
+bool mem_reg(uint32_t addr, uint32_t *data, enum REG_OPS op) {
+    int oldstate;
+    bool ret;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
+    pthread_mutex_lock(&mem_lock);
+    ret = mem_reg_unlocked(addr, data, op);
+    pthread_mutex_unlock(&mem_lock);
+    pthread_setcancelstate(oldstate, NULL);
+    return ret;
+}
 
 // usage: mem_reg(regs[reg_num]->address, &val, OP_READ)
 
-bool mem_reg(uint32_t addr, uint32_t *data, enum REG_OPS op) {
+static bool mem_reg_unlocked(uint32_t addr, uint32_t *data, enum REG_OPS op) {
     static int mem_fd;
     static char *loaded_area;
     static uint32_t loaded_offset;

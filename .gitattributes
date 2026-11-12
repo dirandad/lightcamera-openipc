@@ -1,0 +1,15 @@
+# Scripts run on the camera (busybox sh): CRLF line endings break them.
+*.sh            text eol=lf
+**/init.d/*     text eol=lf
+*.yml           text eol=lf
+**/network/interfaces text eol=lf
+
+**/autoconfig/etc/** text eol=lf
+**/S50lightcam text eol=lf
+
+# Sensor driver files and binaries are installed as-is on the camera: never
+# convert them.
+L620/sensor/** -text
+**/sensors/** -text
+**/usr/sbin/lightcam -text
+lightcam-application/src/lightcam -text

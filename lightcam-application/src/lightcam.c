@@ -18,6 +18,7 @@ Contributors:
 #include <pthread.h>
 #include <poll.h>
 #include <time.h>
+#include <fcntl.h>
 
 #include "serial/serial.h"
 #include "gpiopmux/gpiopmux.h"
@@ -70,22 +71,41 @@ Then Start mqtt Client :
  * @brief The function will be called whenever a PUBLISH message is received.
  */
 
+#define LIGHTCAM_VERSION "2.0.1"
+
 pthread_t gpiothread_id;
+int gpiothread_started = 0;
 
 const char lightcamconfigfile[18] = "/var/lib/lightcam";
 
 char hostname[256];
 char mqtt_subscribed_topic[1024];
 char mqtt_watchdog_topic[1024];
+char mqtt_availability_topic[1024];
+char mqtt_client_id[300];
 int watchdog = 0;
-int watchdogcnt = 0;
-unsigned char buf[100];
-unsigned char readbuf[100];
+// watchdog messages sent and not received back yet
+int watchdogmissed = 0;
 
-bool gpiodetector = false;
+// MQTT buffers: big enough for the Home Assistant discovery messages
+#define MQTT_BUFSIZE 2048
+unsigned char buf[MQTT_BUFSIZE];
+unsigned char readbuf[MQTT_BUFSIZE];
+
+// written by the GPIO thread, read by the main loop
+volatile sig_atomic_t gpiodetector = 0;
 bool detectionstatus = false;
 
 bool requestpublish = true;
+
+// MCU status: checked every MCU_CHECK_PERIOD seconds, and 2 s after a change
+#define MCU_CHECK_PERIOD 60
+double mcu_nextcheck = 0;
+int mcu_answering = -1;	// -1 unknown, 0 no answer, 1 answering
+int mcu_resent = 0;	// configuration sent again after a check failed
+int mcu_resent_streak = 0;	// consecutive resends, reset when the status matches
+
+double current_timestamp();
 
 struct struct_detector
 {
@@ -107,6 +127,8 @@ struct yaml_mqtt
 	char* password;
 	char* topic;
 	double detectortempo;
+	int discovery;		// publish Home Assistant MQTT discovery messages
+	char* discoveryprefix;	// default "homeassistant"
 };
 
 struct yaml_serial
@@ -131,7 +153,9 @@ enum parser_state {
 	STATE_MQTT_PASSWORD,
 	STATE_MQTT_TOPIC,
 	STATE_MQTT_DETECTORTEMPO,
-	
+	STATE_MQTT_DISCOVERY,
+	STATE_MQTT_DISCOVERYPREFIX,
+
 	STATE_SERIAL,
 	STATE_SERIAL_KEY,
 	STATE_SERIAL_PORT,
@@ -258,6 +282,10 @@ int consume_event(struct yaml_config *s, yaml_event_t *event)
                 s->state = STATE_MQTT_TOPIC;
             } else if (strcmp(value, "detectortempo") == 0) {
                 s->state = STATE_MQTT_DETECTORTEMPO;
+            } else if (strcmp(value, "discovery") == 0) {
+                s->state = STATE_MQTT_DISCOVERY;
+            } else if (strcmp(value, "discoveryprefix") == 0) {
+                s->state = STATE_MQTT_DISCOVERYPREFIX;
             } else {
                 fprintf(stderr, "Unexpected key: %s\n", value);
                 return 0;
@@ -336,6 +364,31 @@ int consume_event(struct yaml_config *s, yaml_event_t *event)
         switch (event->type) {
         case YAML_SCALAR_EVENT://6
             s->mqtt.detectortempo = strtod((char *)event->data.scalar.value, &ptr);
+            s->state = STATE_MQTT_KEY;
+            break;
+        default:
+            fprintf(stderr, "Unexpected event %d in state %d.\n", event->type, s->state);
+            return 0;
+        }
+        break;
+
+    case STATE_MQTT_DISCOVERY:
+        switch (event->type) {
+        case YAML_SCALAR_EVENT:
+            value = (char *)event->data.scalar.value;
+            s->mqtt.discovery = (strcmp(value, "true") == 0 || strcmp(value, "yes") == 0 || strcmp(value, "1") == 0);
+            s->state = STATE_MQTT_KEY;
+            break;
+        default:
+            fprintf(stderr, "Unexpected event %d in state %d.\n", event->type, s->state);
+            return 0;
+        }
+        break;
+
+    case STATE_MQTT_DISCOVERYPREFIX:
+        switch (event->type) {
+        case YAML_SCALAR_EVENT:
+            s->mqtt.discoveryprefix = strdup((char *)event->data.scalar.value);
             s->state = STATE_MQTT_KEY;
             break;
         default:
@@ -430,8 +483,7 @@ int write_lightcamconfig()
 		fprintf(stderr, "Error to open the file\n");
 		return -1;
 	}
-	fwrite (&light_config, sizeof(struct struct_light_config), 1, of);
-	if(fwrite == 0)
+	if (fwrite (&light_config, sizeof(struct struct_light_config), 1, of) != 1)
 		printf("Error writing file !\n");
 	fclose (of);
 	return 0;
@@ -456,37 +508,105 @@ int read_lightcamconfig()
 }
 
 
+// Publish on an absolute topic.
+int MQTTPublishRaw(MQTTClient *c, const char *fulltopic, const char *strvalue, enum QoS qos, int retained, int verbose)
+{
+	if(!c->isconnected)
+		return -1;
+
+	MQTTMessage pubmsg;
+	memset(&pubmsg, '\0', sizeof(pubmsg));
+	pubmsg.payload = (void*)strvalue;
+	pubmsg.payloadlen = strlen(strvalue);
+	pubmsg.qos = qos;
+	pubmsg.retained = retained;
+	pubmsg.dup = 0;
+
+	if (verbose)
+		printf("MQTT-->%s=%s\n", fulltopic, strvalue);
+
+	return MQTTPublish(c, fulltopic, &pubmsg);
+}
+
+// Publish a state under the base topic: QoS 1 and retained, so that Home
+// Assistant gets the last state as soon as it (re)subscribes.
 int MQTTCamPublish(MQTTClient *c, char *topic, char *strvalue)
 {
+	char fulltopic[1024];
+	snprintf(fulltopic, sizeof(fulltopic), "%s%s", config.mqtt.topic, topic);
+	return MQTTPublishRaw(c, fulltopic, strvalue, QOS1, 1, 1);
+}
 
-	
-	if(c->isconnected)
-	{
-		char fulltopic[1024];
-		MQTTMessage pubmsg;
-		
-		memset(&pubmsg, '\0', sizeof(pubmsg));
-		pubmsg.payload = (void*)strvalue;
-		pubmsg.payloadlen = strlen((char*)pubmsg.payload);
-		pubmsg.qos = QOS2;
-		pubmsg.retained = 0;
-		pubmsg.dup = 0;
+// Home Assistant MQTT discovery (only with "discovery: true" in lightcam.yml).
+// One device per camera, named and identified after the base topic: the host
+// name is the same on every camera installed with the default settings.
+static void publish_discovery_entity(MQTTClient *c, const char *component, const char *object, const char *body)
+{
+	char topic[512];
+	char payload[1536];
+	const char *base = config.mqtt.topic;
 
-		strcpy(fulltopic, config.mqtt.topic);
-		strcat(fulltopic,topic);
-		
-		printf("MQTT-->%s=%s\n", fulltopic, strvalue);
-		
-		return MQTTPublish(c, fulltopic, &pubmsg);
-	}
-	else
-		return 0;
+	snprintf(topic, sizeof(topic), "%s/%s/%s/%s/config",
+		config.mqtt.discoveryprefix, component, base, object);
+	snprintf(payload, sizeof(payload),
+		"{\"name\":\"%s\",\"unique_id\":\"%s_%s\",\"object_id\":\"%s_%s\","
+		"\"availability_topic\":\"%s/Availability\","
+		"\"device\":{\"identifiers\":[\"lightcam_%s\"],\"name\":\"%s\",\"manufacturer\":\"Steinel\",\"model\":\"L620 (OpenIPC)\",\"sw_version\":\"lightcam " LIGHTCAM_VERSION "\"},"
+		"%s}",
+		object, base, object, base, object,
+		base,
+		base, base,
+		body);
+	MQTTPublishRaw(c, topic, payload, QOS1, 1, 0);
+}
+
+void publish_discovery(MQTTClient *c)
+{
+	char body[1024];
+	const char *b = config.mqtt.topic;
+
+	printf("Publishing Home Assistant discovery under %s\n", config.mqtt.discoveryprefix);
+
+	snprintf(body, sizeof(body), "\"state_topic\":\"%s/Get/Detection\",\"payload_on\":\"1\",\"payload_off\":\"0\",\"device_class\":\"motion\"", b);
+	publish_discovery_entity(c, "binary_sensor", "detection", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/LightMode\",\"state_topic\":\"%s/Get/LightMode\",\"options\":[\"on\",\"detect\",\"config\"],\"icon\":\"mdi:lightbulb\"", b, b);
+	publish_discovery_entity(c, "select", "lightmode", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/AlarmMode\",\"state_topic\":\"%s/Get/AlarmMode\",\"payload_on\":\"on\",\"payload_off\":\"off\",\"icon\":\"mdi:alarm-light\"", b, b);
+	publish_discovery_entity(c, "switch", "alarmmode", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/PirSensibility\",\"state_topic\":\"%s/Get/PirSensibility\",\"min\":1,\"max\":25,\"step\":1,\"mode\":\"slider\",\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "number", "pirsensibility", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/LuxSensibility\",\"state_topic\":\"%s/Get/LuxSensibility\",\"min\":1,\"max\":23,\"step\":1,\"mode\":\"slider\",\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "number", "luxsensibility", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/HighLightLevel\",\"state_topic\":\"%s/Get/HighLightLevel\",\"min\":1,\"max\":19,\"step\":1,\"mode\":\"slider\",\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "number", "highlightlevel", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/LowLightLevel\",\"state_topic\":\"%s/Get/LowLightLevel\",\"min\":1,\"max\":12,\"step\":1,\"mode\":\"slider\",\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "number", "lowlightlevel", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/OnTemporisation\",\"state_topic\":\"%s/Get/OnTemporisation\",\"options\":[\"1\",\"3\",\"10\",\"15\"],\"unit_of_measurement\":\"min\",\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "select", "ontemporisation", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/LowLightDuration\",\"state_topic\":\"%s/Get/LowLightDuration\",\"options\":[\"-1\",\"2\",\"4\",\"6\",\"10\"],\"entity_category\":\"config\"", b, b);
+	publish_discovery_entity(c, "select", "lowlightduration", body);
+
+	snprintf(body, sizeof(body), "\"command_topic\":\"%s/Set/Update\",\"payload_press\":\"1\",\"entity_category\":\"diagnostic\"", b);
+	publish_discovery_entity(c, "button", "update", body);
+
+	snprintf(body, sizeof(body), "\"state_topic\":\"%s/Get/Status\",\"entity_category\":\"diagnostic\",\"icon\":\"mdi:chip\"", b);
+	publish_discovery_entity(c, "sensor", "mcustatus", body);
 }
 
 int publish_lightcamconfig(MQTTClient *c)
 {
 	char *strvalue;
-	char strarr[2];	
+	// big enough for any int ("%d"): it was char[2] before 2026-11, a stack
+	// overflow at each publication of a 2-digit value
+	char strarr[12];
 	requestpublish = false;
 		
 	// publish light_config.lightmode on /Get/LightMode
@@ -549,6 +669,65 @@ int publish_lightcamconfig(MQTTClient *c)
 		strvalue = "10";
 	MQTTCamPublish(c, "/Get/LowLightDuration", strvalue);
 
+	// current detection state, also after a reconnection
+	MQTTCamPublish(c, "/Get/Detection", strct_detector.detectionstatus ? "1" : "0");
+
+	return 0;
+}
+
+// Read the MCU status frame, publish it on /Get/Status, and send the
+// configuration again when the MCU does not have it (for example after a
+// reset of the light card, issue #20).
+void mcu_check(MQTTClient *c)
+{
+	unsigned char st[LIGHT_STATUS_LEN];
+	char hex[3 * LIGHT_STATUS_LEN + 1];
+	int i, diff;
+
+	mcu_nextcheck = current_timestamp() + MCU_CHECK_PERIOD;
+
+	if (light_readstatus(st) < 0)
+	{
+		if (mcu_answering != 0)
+			printf("MCU: no answer to the update command\n");
+		mcu_answering = 0;
+		MQTTCamPublish(c, "/Get/Status", "noanswer");
+		return;
+	}
+
+	for (i = 0; i < LIGHT_STATUS_LEN; i++)
+		sprintf(hex + 3 * i, "%02x%s", st[i], i < LIGHT_STATUS_LEN - 1 ? " " : "");
+	MQTTCamPublish(c, "/Get/Status", hex);
+
+	diff = light_checkstatus(light_config, st);
+	if (mcu_answering == 0)
+	{
+		// the MCU answers again (power back, reset): the light mode and the
+		// alarm mode are not in the status frame, send everything
+		printf("MCU: answers again, sending the configuration\n");
+		diff = -1;
+	}
+	mcu_answering = 1;
+
+	if (!diff)
+	{
+		mcu_resent_streak = 0;
+		return;
+	}
+	if (mcu_resent_streak >= 3)
+	{
+		// do not loop when a setting never reads back as expected
+		if (mcu_resent_streak == 3)
+			printf("MCU: status %s still differs (mask 0x%02x) after 3 tries, giving up until the next change\n", hex, diff & 0xff);
+		mcu_resent_streak = 4;
+		return;
+	}
+	printf("MCU: status %s differs from the configuration (mask 0x%02x), sending it again\n", hex, diff & 0xff);
+	light_setconfig(light_config);
+	mcu_resent++;
+	mcu_resent_streak++;
+	// check again soon
+	mcu_nextcheck = current_timestamp() + 2;
 }
 
 void ActiveGPIO(char *strGpio, uint32_t addr, uint32_t value)
@@ -604,14 +783,19 @@ int inithardware()
 
 	// set tty
 	printf("Initialize tty...");
-	initialize(config.serial.port, config.serial.baudrate, 0);
+	if (initialize(config.serial.port, config.serial.baudrate, 0) < 0)
+	{
+		printf("error: no light card control\n");
+		return -1;
+	}
 	printf("done\n");
-	
+
 	// send update
 	printf("light_update...");
 	light_update();
 	printf("done\n");
-	
+
+	return 0;
 }
 
 
@@ -625,6 +809,9 @@ int GetYamlConfig(char *configfilepath){
 	config.mqtt.username = NULL;
 	config.mqtt.password = NULL;
 	config.mqtt.topic = hostname;
+	config.mqtt.detectortempo = 60.0;
+	config.mqtt.discovery = 0;
+	config.mqtt.discoveryprefix = "homeassistant";
 	config.serial.port = "/dev/ttyAMA0";
 	config.serial.baudrate = 9600;
 	
@@ -637,7 +824,7 @@ int GetYamlConfig(char *configfilepath){
 	configfile = fopen(configfilepath, "r");
 	
 	if(!configfile){
-		printf("Cannot open config file '%s'\n", configfile);
+		printf("Cannot open config file '%s'\n", configfilepath);
 		code = EXIT_FAILURE;
 	}
 	else{
@@ -688,10 +875,12 @@ int GetYamlConfig(char *configfilepath){
 	printf("============Configuration==============\n");
 	printf("config.mqtt.server='%s'\n", config.mqtt.server);
 	printf("config.mqtt.port='%d'\n", config.mqtt.port);
-	printf("config.mqtt.username='%s'\n", config.mqtt.username);
-	printf("config.mqtt.password='%s'\n", config.mqtt.password);
+	printf("config.mqtt.username='%s'\n", config.mqtt.username ? config.mqtt.username : "");
+	// never print the password: the output goes to the system log
+	printf("config.mqtt.password=%s\n", config.mqtt.password ? "(set)" : "(none)");
 	printf("config.mqtt.topic='%s'\n", config.mqtt.topic);
-	printf("config.mqtt.detectortempo='%Le'\n", config.mqtt.detectortempo);
+	printf("config.mqtt.detectortempo='%f'\n", config.mqtt.detectortempo);
+	printf("config.mqtt.discovery=%s (prefix '%s')\n", config.mqtt.discovery ? "on" : "off", config.mqtt.discoveryprefix);
 	printf("config.serial.port='%s'\n", config.serial.port);
 	printf("config.serial.baudrate='%d'\n", config.serial.baudrate);
 	printf("==========fin Configuration============\n");
@@ -759,10 +948,13 @@ void messageArrived(MessageData* md)
 
 	cleantopic = str_replace(topic, config.mqtt.topic, "");
 
+	if (!cleantopic)
+		return;
+
 	if(strcmp(cleantopic, "/Watchdog")==0)
 	{
 		watchdog = (watchdog > 32000 ? 0 : watchdog+1);
-		watchdogcnt = -1;
+		watchdogmissed = 0;
 	}
 	else
 	{
@@ -923,8 +1115,12 @@ void messageArrived(MessageData* md)
 		
 		
 		write_lightcamconfig();
-		
+
 		requestpublish = true;
+
+		// read the MCU status 2 s later to check that the change was applied
+		mcu_resent_streak = 0;
+		mcu_nextcheck = current_timestamp() + 2;
 		
 	}
 	
@@ -959,11 +1155,17 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 	//			{basetopic}/Set/LowLightDuration={-1,2,4,6,10}
 
 	
+	// Availability (Last Will):
+	//			{basetopic}/Availability={online,offline}, retained
+	//			"offline" is published by the broker when the camera disappears
+	// MCU status:
+	//			{basetopic}/Get/Status=<10 bytes in hex>|noanswer
+
 	// setting mqtt client
 	printf("Setting mqtt client...");
-	
-	watchdogcnt = 0;
-	
+
+	watchdogmissed = 0;
+
 	int rc = 0;
 
 	if(c->isconnected)
@@ -974,6 +1176,7 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 	if (n->my_socket != -1)
 	{
 		NetworkDisconnect(n);
+		n->my_socket = -1;
 	}
 	printf("\nNetworkInit\n");
 	NetworkInit(n);
@@ -988,10 +1191,22 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 		printf("MQTTClientInit\n");
 		MQTTClientInit(c, n, 1000, buf, bufsize, readbuf, readbufsize);
 	 
-		MQTTPacket_connectData data = MQTTPacket_connectData_initializer;       
-		data.willFlag = 0;
+		snprintf(mqtt_availability_topic, sizeof(mqtt_availability_topic), "%s/Availability", config.mqtt.topic);
+
+		MQTTPacket_connectData data = MQTTPacket_connectData_initializer;
+		// Last Will: the broker publishes "offline" (retained) if the camera
+		// stops answering, so Home Assistant shows it as unavailable
+		data.willFlag = 1;
+		data.will.topicName.cstring = mqtt_availability_topic;
+		data.will.message.cstring = "offline";
+		data.will.retained = 1;
+		data.will.qos = 1;
 		data.MQTTVersion = 3;
-		data.clientID.cstring = hostname;
+		// client ID: the base topic, which is unique per camera. The host name
+		// is the same on every camera installed with the default settings, and
+		// two clients with the same ID disconnect each other in a loop.
+		snprintf(mqtt_client_id, sizeof(mqtt_client_id), "lightcam-%s", config.mqtt.topic);
+		data.clientID.cstring = mqtt_client_id;
 		data.username.cstring = config.mqtt.username;
 		data.password.cstring = config.mqtt.password;
 
@@ -1003,8 +1218,10 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 		rc = MQTTConnect(c, &data);
 		if(rc)
 		{
-			printf("Cannot connect to MQTT %s:%d\n", config.mqtt.server, config.mqtt.port);
+			printf("Cannot connect to MQTT %s:%d (%d)\n", config.mqtt.server, config.mqtt.port, rc);
 			NetworkDisconnect(n);
+			n->my_socket = -1;
+			c->isconnected = 0;
 			return -1;
 		}
 		else
@@ -1018,18 +1235,31 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 			strcat(mqtt_subscribed_topic,"/Set/#");
 			
 			printf("Subscribing to %s\n", mqtt_subscribed_topic);
-			rc = MQTTSubscribe(c, mqtt_subscribed_topic, QOS2, messageArrived);
-			
+			rc = MQTTSubscribe(c, mqtt_subscribed_topic, QOS1, messageArrived);
+			if (rc)
+				printf("Subscribe to %s failed (%d)\n", mqtt_subscribed_topic, rc);
+
 			// Watchdog
 			strcpy(mqtt_watchdog_topic, config.mqtt.topic);
-			
+
 			strcat(mqtt_watchdog_topic,"/Watchdog");
-			
+
 			printf("Subscribing to %s\n", mqtt_watchdog_topic);
-			rc = MQTTSubscribe(c, mqtt_watchdog_topic, QOS2, messageArrived);
-			
+			rc = MQTTSubscribe(c, mqtt_watchdog_topic, QOS0, messageArrived);
+			if (rc)
+				printf("Subscribe to %s failed (%d)\n", mqtt_watchdog_topic, rc);
+
+			MQTTPublishRaw(c, mqtt_availability_topic, "online", QOS1, 1, 1);
+
+			if (config.mqtt.discovery)
+				publish_discovery(c);
+
+			// publish the configuration and the MCU status now
+			requestpublish = true;
+			mcu_nextcheck = 0;
+
 			printf("done\n");
-			
+
 			return 1;
 			
 		}
@@ -1040,22 +1270,20 @@ int initmqtt(Network *n, MQTTClient *c, unsigned char *buf, int bufsize, unsigne
 
 }
 
+// Publish the watchdog counter (kept for the existing Home Assistant
+// configurations, which use it with expire_after). Returns the number of
+// watchdog messages not received back from the broker.
 int MQTTWatchdog(MQTTClient *c)
 {
-	int rc = 0;	
-		
-	MQTTMessage pubmsg;
-	
-	char watchdogstr[6] = "0";
-	sprintf(watchdogstr, "%d", watchdog);
-	
-	MQTTCamPublish(c, "/Watchdog", watchdogstr);
-	
-	if(watchdogcnt<5)
-		watchdogcnt++;
-	
-	
-	return watchdogcnt;
+	char watchdogstr[12];
+	char fulltopic[1024];
+
+	snprintf(watchdogstr, sizeof(watchdogstr), "%d", watchdog);
+	snprintf(fulltopic, sizeof(fulltopic), "%s/Watchdog", config.mqtt.topic);
+	MQTTPublishRaw(c, fulltopic, watchdogstr, QOS0, 0, 0);
+
+	watchdogmissed++;
+	return watchdogmissed;
 }
 
 double current_timestamp() {
@@ -1068,15 +1296,11 @@ double current_timestamp() {
 }
 
 
-int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct_detector)
+int MQTTdetector(MQTTClient *c, volatile sig_atomic_t *gpiodetector, struct struct_detector *stct_detector)
 {
-	int rc;
-	char topic[1024];
-	MQTTMessage pubmsg;
-	
     double time_spent;
     double now;
-	
+
 	if(*gpiodetector)
 	{
 		// clock seems to be wrong. 1.0 = 710sec
@@ -1097,7 +1321,7 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
 			printf("Detector ON\n");
 		}
 		
-		*gpiodetector = false;
+		*gpiodetector = 0;
 	}
 	
 	
@@ -1123,30 +1347,34 @@ int MQTTdetector(MQTTClient *c, bool *gpiodetector, struct struct_detector *stct
         }
 	}
 
+	return 0;
 }
 
 // detection function call as pthread
 void *GPIOdetectorCallback(void *args){
 
-	char strvalue[1];
-	char strcmpval[1] = "0";  // 0 = detector
+	// one character: '0' = detection (the input is active low).
+	// Before 2026-11 a 1-byte array without terminator was passed to strcmp.
+	char strvalue[2] = { 0, 0 };
 	int ret;
 	int nn;
 	int ep;
-	int rc;
 	int fd;
-	bool *detector = args;
-	char topic[1024];
+	volatile sig_atomic_t *detector = args;
 
-	//struct epoll_event ev, events;
 	struct epoll_event ev, events;
 
 	printf("Configuring epoll to gpio13...");
 
 	ep = epoll_create1(0);
-	
+
 	fd = open("/sys/class/gpio/gpio13/value", O_RDONLY);
-	
+	if (fd < 0 || ep < 0)
+	{
+		printf("error: cannot watch /sys/class/gpio/gpio13/value, no detection\n");
+		return NULL;
+	}
+
 	nn = read(fd, strvalue, 1);
 	
 	ev.events = EPOLLIN | EPOLLET; // EPOLLPRI;
@@ -1166,14 +1394,15 @@ void *GPIOdetectorCallback(void *args){
 			lseek(fd, 0, SEEK_SET);
 
 			nn = read(fd, strvalue, 1);
-			if(strcmp(strvalue, strcmpval)==0)
+			if(nn == 1 && strvalue[0] == '0')
 			{
-				*detector = true;
+				*detector = 1;
 			}
 		}
-		
+
 	}
-	
+
+	return NULL;
 }
 
 
@@ -1191,7 +1420,11 @@ int main(int argc, char *argv[]) {
     c.isconnected = 0;
 	n.my_socket = -1;
 	
-	printf("LightCam Module to control Light Extension Card, Status Led and configuration\n");
+	// line buffered output: the log is readable at once when redirected to a
+	// file or to syslog
+	setvbuf(stdout, NULL, _IOLBF, 0);
+
+	printf("LightCam " LIGHTCAM_VERSION " - Light Extension Card, Status Led and configuration\n");
 	
 	// read config;
 	printf("Loading config file %s\n", lightcamconfigfile);
@@ -1224,100 +1457,130 @@ int main(int argc, char *argv[]) {
 	inithardware();	
 	
 	light_setconfig(light_config);
-	
-	initmqtt(&n, &c, buf, 100, readbuf, 100);
 
-	
 	// Initialisation of detector
 	strct_detector.maxtempo = config.mqtt.detectortempo;
-	
-	// LED_COLOR { LED_NONE, LED_RED, LED_GREEN };
-	// LED_MODE { LED_OFF, LED_ON, LED_02HZ, LED_05HZ, LED_1HZ };
-
 
 	signal(SIGINT, cfinish);
 	signal(SIGTERM, cfinish);
+	// a broken connection must not kill the process
+	signal(SIGPIPE, SIG_IGN);
 
-		
-	int rc = 0;	
-	int cnt = 0;
-	int cntwdg = 0;
-	int cntpublish = 0;
-	
+	toStop = 0;
 
+	if (pthread_create(&gpiothread_id, NULL, GPIOdetectorCallback, (void *)&gpiodetector) == 0)
+		gpiothread_started = 1;
 
-	//*detection(NULL);
-	
-	toStop = false;
-	
-	pthread_create(&gpiothread_id, NULL, GPIOdetectorCallback, (void *)&gpiodetector);
-	
+	// LED: green = connected, red blinking = broker not answering the
+	// watchdog, red = disconnected
+	double next_reconnect = 0;
+	double next_watchdog = 0;
+	double next_publish = 0;
+	int backoff = 10;
+	double now;
+
 	printf("Starting main loop...\n");
-	
+
 	while (!toStop)
 	{
-		cntwdg = cntwdg + 1;
-		if(cntwdg>=5)
-		{			
-			cnt = MQTTWatchdog(&c);
-			cntwdg = 0;
-		}
+		now = current_timestamp();
 
-		cntpublish = cntpublish + 1;
-		if(cntpublish>=60)
-		{			
-			requestpublish = true;
-			cntpublish = 0;
-		}
-		if(cnt > 0)
+		if (!c.isconnected)
 		{
-			if(cnt < 5)
+			setled(LED_RED, LED_ON);
+			if (now >= next_reconnect)
 			{
-				// TO DO : Create memory leak... need to be investiguate
-				//setled(LED_RED, LED_02HZ); 
+				if (initmqtt(&n, &c, buf, MQTT_BUFSIZE, readbuf, MQTT_BUFSIZE) > 0)
+				{
+					backoff = 10;
+					next_watchdog = now + 5;
+					next_publish = now + 60;
+				}
+				else
+				{
+					printf("MQTT connection failed, next try in %d s\n", backoff);
+					next_reconnect = now + backoff;
+					backoff = (backoff * 2 > 60 ? 60 : backoff * 2);
+				}
 			}
 			else
 			{
-				setled(LED_RED, LED_ON);
-				printf("Watchdog timeout, trying to reconnect MQTT...\n");
-				sleep(10);
-				initmqtt(&n, &c, buf, 100, readbuf, 100);
+				sleep(1);
 			}
 		}
 		else
 		{
-			MQTTYield(&c, 1000);
-			setled(LED_GREEN, LED_ON);
-			
-			MQTTdetector(&c, &gpiodetector, &strct_detector);
-			
+			// process incoming messages and the MQTT keepalive for 1 s
+			if (MQTTYield(&c, 1000) != SUCCESS)
+			{
+				printf("MQTT connection lost\n");
+				c.isconnected = 0;
+				NetworkDisconnect(&n);
+				n.my_socket = -1;
+				next_reconnect = current_timestamp() + 5;
+				continue;
+			}
+
+			now = current_timestamp();
+			if (now >= next_watchdog)
+			{
+				next_watchdog = now + 5;
+				if (MQTTWatchdog(&c) > 6)
+				{
+					// 30 s without our own watchdog message coming back
+					printf("Watchdog timeout, reconnecting MQTT\n");
+					c.isconnected = 0;
+					NetworkDisconnect(&n);
+					n.my_socket = -1;
+					next_reconnect = now + 5;
+					continue;
+				}
+			}
+
+			if (watchdogmissed > 2)
+				setled(LED_RED, LED_05HZ);
+			else
+				setled(LED_GREEN, LED_ON);
+
+			if (now >= next_publish)
+			{
+				requestpublish = true;
+				next_publish = now + 60;
+			}
 			if(requestpublish)
 				publish_lightcamconfig(&c);
-			
 		}
 
+		// detection and MCU check also run while MQTT is down
+		MQTTdetector(&c, &gpiodetector, &strct_detector);
+
+		if (current_timestamp() >= mcu_nextcheck)
+			mcu_check(&c);
 	}
-	
-	
-	// stop thread if exists
-	if(gpiothread_id)
-	{
+
+
+	// The GPIO thread waits in epoll_wait() without timeout, and with musl
+	// pthread_cancel() may not wake it: joining it blocked the exit, and
+	// lightcam did not stop on SIGTERM ("S50lightcam stop" said OK but the
+	// process stayed). Do not wait for it: exit() ends every thread.
+	if(gpiothread_started)
 		pthread_cancel(gpiothread_id);
-		
-		gpiothread_id = NULL;
-	}
-	
+
 	printf("Stopping\n");
 
-	MQTTDisconnect(&c);
-	NetworkDisconnect(&n);
-		
+	if (c.isconnected)
+	{
+		MQTTPublishRaw(&c, mqtt_availability_topic, "offline", QOS1, 1, 1);
+		MQTTDisconnect(&c);
+	}
+	if (n.my_socket != -1)
+		NetworkDisconnect(&n);
+
 	printf("Closing...");
-	
-		
-	
+
 	setled(LED_NONE, LED_OFF);
-	
+
 	printf("done\n");
 
+	return 0;
 }
