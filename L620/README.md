@@ -1359,6 +1359,10 @@ Some of these settings apply at the next boot (`bootargs`). You can reboot the c
 
 4.2. Open `http://<camera-ip>/`. OpenIPC asks you to set the `root` password first. Until it is set, SSH accepts no command, even with a key.
 
+The dashboard of a L620 migrated with this procedure (OpenIPC 2.6.11.09, SC2235P sensor, U-Boot 2022.10):
+
+![OpenIPC dashboard of a migrated L620](/L620/ressources/OpenIPC.png)
+
 4.3. In the web interface:
 - set the time zone;
 - check that **IR-cut filter** is off (`autoconfig.sh` sets it: `cli -s .nightMode.irCut off`). The L620 lights the scene with its own lamp at night, and the Steinel firmware never moved the filter: the camera works in day mode. OpenIPC warns when the filter is enabled with no GPIO configured.
