@@ -153,6 +153,13 @@ if [ -f /root/.ssh/authorized_keys ]; then
 	log "SSH key installed"
 fi
 
+# IR-cut filter off in majestic: the L620 lights the scene with its own lamp at
+# night, and no GPIO moves the filter (the Steinel firmware never moved it).
+# Without this, the web interface warns that majestic cannot move the filter.
+if command -v cli >/dev/null 2>&1; then
+	cli -s .nightMode.irCut off && log "majestic: IR-cut filter set to off"
+fi
+
 # No login prompt on ttyAMA0: comment the getty line of /etc/inittab. It reads
 # the UART too and would take the answers of the MCU.
 if grep -q '^console::respawn:/sbin/getty' /etc/inittab 2>/dev/null; then

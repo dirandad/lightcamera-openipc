@@ -1361,7 +1361,7 @@ Some of these settings apply at the next boot (`bootargs`). You can reboot the c
 
 4.3. In the web interface:
 - set the time zone;
-- set **IR-cut filter** to off. The L620 lights the scene with its own lamp at night, and the Steinel firmware never moved the filter: the camera works in day mode. OpenIPC warns when the filter is enabled with no GPIO configured.
+- check that **IR-cut filter** is off (`autoconfig.sh` sets it: `cli -s .nightMode.irCut off`). The L620 lights the scene with its own lamp at night, and the Steinel firmware never moved the filter: the camera works in day mode. OpenIPC warns when the filter is enabled with no GPIO configured.
 
 4.4. Check, on the camera (SSH) or on the card (`autoconfig.log`):
 
@@ -1415,7 +1415,7 @@ Steps:
 5. Open `http://<camera-ip>/`, **set the root password**, and paste your SSH public key (until the password is set, SSH accepts no command).
 6. **Reboot once more**: the CMA memory allocator and `console=null` apply at this boot. Then check `cat /mnt/mmcblk0*/autoconfig.log`.
 
-What is not kept: the majestic settings (image, streams, night mode: set **IR-cut filter** to off again), the web interface password, and any file you added by hand.
+What is not kept: the majestic settings (image, streams; `autoconfig.sh` sets the IR-cut filter to off again), the web interface password, and any file you added by hand.
 
 #### 6.1. Optional: replace U-Boot
 
